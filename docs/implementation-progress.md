@@ -154,6 +154,6 @@ The current baseline has been verified with:
 - `rm -rf dist && bun run build`
 - `bun run build:binary`
 - compiled binary metadata smoke test
-- local CodeRabbit review before push
+- local Codex review (`codex review --base main`) before push
 
 Future implementation slices should keep these checks passing unless a PR explicitly changes the verification strategy.
