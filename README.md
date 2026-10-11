@@ -9,19 +9,19 @@ Three command layers: curated commands for common workflows, a generated API lay
 ### Linux and macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/qwrobins/linearctl/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh
 ```
 
 Or install a specific version:
 
 ```bash
-LINEAR_VERSION=v0.8.13 curl -fsSL https://raw.githubusercontent.com/qwrobins/linearctl/main/install.sh | sh
+LINEAR_VERSION=v0.8.13 curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh
 ```
 
 On Debian/Ubuntu, the installer automatically uses the `.deb` package. To skip deb and install the raw binary instead:
 
 ```bash
-LINEAR_NO_DEB=1 curl -fsSL https://raw.githubusercontent.com/qwrobins/linearctl/main/install.sh | sh
+LINEAR_NO_DEB=1 curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh
 ```
 
 ### npm / Node.js
@@ -49,7 +49,7 @@ From PowerShell:
 
 ```powershell
 $installer = Join-Path ([IO.Path]::GetTempPath()) "install-linearctl.ps1"
-Invoke-WebRequest https://raw.githubusercontent.com/qwrobins/linearctl/main/install.ps1 -OutFile $installer
+Invoke-WebRequest https://raw.githubusercontent.com/qwrnet/linearctl/main/install.ps1 -OutFile $installer
 & $installer -AddToPath
 Remove-Item $installer
 ```
@@ -74,13 +74,13 @@ invalid signature (verification fails or execution exits 137), follow the
 
 Point your agent at the install guide and it will handle everything:
 
-> Install and set up linearctl using https://raw.githubusercontent.com/qwrobins/linearctl/main/INSTALL.md
+> Install and set up linearctl using https://raw.githubusercontent.com/qwrnet/linearctl/main/INSTALL.md
 
 Or do it step by step:
 
 ```bash
 # Install
-curl -fsSL https://raw.githubusercontent.com/qwrobins/linearctl/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh
 
 # Install agent skills
 linearctl skills install

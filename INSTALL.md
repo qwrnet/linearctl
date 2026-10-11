@@ -7,7 +7,7 @@ linearctl is an agent-first CLI for the Linear API. Follow these steps to instal
 Linux and macOS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/qwrobins/linearctl/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh
 ```
 
 This detects your OS and architecture and installs to `~/.local/bin/linearctl`. On Debian/Ubuntu it uses a `.deb` package automatically.
@@ -28,7 +28,7 @@ Windows PowerShell:
 
 ```powershell
 $installer = Join-Path ([IO.Path]::GetTempPath()) "install-linearctl.ps1"
-Invoke-WebRequest https://raw.githubusercontent.com/qwrobins/linearctl/main/install.ps1 -OutFile $installer
+Invoke-WebRequest https://raw.githubusercontent.com/qwrnet/linearctl/main/install.ps1 -OutFile $installer
 & $installer -AddToPath
 Remove-Item $installer
 ```

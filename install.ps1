@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-$Repository = "qwrobins/linearctl"
+$Repository = "qwrnet/linearctl"
 $ArchiveName = "linearctl-windows-x64.zip"
 $LegacyArtifactName = "linearctl-windows-x64.exe"
 $BinaryName = "linearctl.exe"
