@@ -21,6 +21,7 @@ repositories) may follow. This page is the policy for how each one updates.
 |---|---|
 | `install.sh` (raw binary) | rerun `install.sh` |
 | `install.sh` on Debian/Ubuntu (`.deb`) | rerun `install.sh`, which installs the new `.deb` |
+| `install.ps1` (Windows) | rerun `install.ps1` as in the README's Windows section |
 | npm | `npm install -g @qwrobinson/linearctl@latest` |
 | Homebrew (future) | `brew upgrade linearctl` |
 | AUR (future) | your AUR helper, for example `yay -Syu linearctl` |
