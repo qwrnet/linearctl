@@ -21,6 +21,7 @@ import { handleProjectStatusCommand } from "../../commands/project-status.js";
 import { handleStateCommand } from "../../commands/state.js";
 import { handleWorkspaceCommand } from "../../commands/workspace.js";
 import { handleSkillsCommand } from "../../commands/skills.js";
+import { handleUpdateCommand } from "../../commands/update.js";
 import { OPTION_GROUPS } from "./option-catalog.js";
 import { baseOptions, curatedOptions, paginationOptions, teamFilterOptions, pickFields } from "./option-mapping.js";
 import type { CommandRegistration, ParsedCliArguments } from "./types.js";
@@ -487,6 +488,21 @@ export const COMMAND_REGISTRY: readonly CommandRegistration[] = [
       json: args.json, jsonEnvelope: args.jsonEnvelope,
       ...pickFields(args, "scope"),
       stdinStream: stdin,
+    }),
+  },
+
+  // ── Update ─────────────────────────────────────────────────────────────
+  {
+    name: "update",
+    optionKeys: [
+      ...OPTION_GROUPS.global,
+    ],
+    subcommands: {
+      check: { usage: "linearctl update check [--json]" },
+    },
+    handler: handleUpdateCommand,
+    buildOptions: (args) => ({
+      json: args.json, jsonEnvelope: args.jsonEnvelope,
     }),
   },
 ] as const;
