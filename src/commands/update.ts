@@ -8,6 +8,7 @@ import { existsSync, readdirSync, realpathSync } from "node:fs";
 import packageJson from "../../package.json" with { type: "json" };
 import { commandIO, type CommandOutputOptions } from "../core/runtime/options.js";
 import { ExitCode } from "../core/errors/exit-codes.js";
+import { failureEnvelope, successEnvelope } from "../core/output/envelope.js";
 
 export const RELEASES_URL = "https://api.github.com/repos/qwrnet/linearctl/releases/latest";
 export const INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh";
@@ -77,7 +78,13 @@ export function compareVersions(a: string, b: string): number {
 
 export async function checkForUpdate(options: Partial<UpdateCommandOptions> = {}): Promise<UpdateCheckResult> {
   const currentVersion = options.currentVersion ?? packageJson.version;
-  let executable = options.executablePath ?? process.argv[1] ?? process.execPath;
+  // A Bun-compiled release reports a virtual script path (/$bunfs/...); its executable is execPath.
+  // Under node or bun (npm installs, a source checkout) the script path is what was installed.
+  const runtime = process.execPath.split(/[\\/]/).pop()?.toLowerCase() ?? "";
+  const viaInterpreter = /^(node|bun)(\.exe)?$/.test(runtime);
+  const script = process.argv[1];
+  let executable = options.executablePath ??
+    (viaInterpreter && script && !script.startsWith("/$bunfs") ? script : process.execPath);
   if (!options.executablePath) {
     try {
       executable = realpathSync(executable);
@@ -114,8 +121,14 @@ export async function handleUpdateCommand(positionals: string[], options: Update
     return ExitCode.ValidationError;
   }
   const result = await checkForUpdate(options);
-  if (options.json || options.jsonEnvelope) {
-    stdout.write(`${JSON.stringify(options.jsonEnvelope ? { ok: !result.error, data: result } : result, null, 2)}\n`);
+  if (options.jsonEnvelope) {
+    const meta = { sourceLayer: "curated" as const };
+    const envelope = result.error
+      ? failureEnvelope([{ category: "general", message: result.error, details: result }], meta)
+      : successEnvelope(result, meta);
+    stdout.write(`${JSON.stringify(envelope, null, 2)}\n`);
+  } else if (options.json) {
+    stdout.write(`${JSON.stringify(result, null, 2)}\n`);
   } else {
     stdout.write(`Current version: ${result.currentVersion}\n`);
     stdout.write(`Latest release:  ${result.latestVersion ?? `unknown (${result.error})`}\n`);

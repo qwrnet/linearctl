@@ -121,7 +121,8 @@ export async function maybeWarnForStaleSchema(options: SchemaFreshnessOptions): 
 }
 
 function shouldSkipCommand(commandName: string | undefined): boolean {
-  return commandName === undefined || commandName === "schema" || commandName === "auth" || commandName === "skills";
+  return commandName === undefined || commandName === "schema" || commandName === "auth" || commandName === "skills" ||
+    commandName === "update";
 }
 
 function wasCheckedRecently(cache: FreshnessCache | null, now: Date): boolean {

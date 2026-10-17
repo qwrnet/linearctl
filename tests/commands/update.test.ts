@@ -60,6 +60,14 @@ describe("update check", () => {
     expect(code).toBe(0);
     expect(Object.keys(JSON.parse(out.chunks.join("")))).toEqual(
       ["currentVersion", "latestVersion", "updateAvailable", "installMethod", "recommendation"]);
+    const envelope = capture();
+    await handleUpdateCommand(["check"], { json: false, jsonEnvelope: true, stdout: envelope.stream as never,
+      fetchImpl: release("", 503), executablePath: "/home/q/.local/bin/linearctl", currentVersion: "0.8.13",
+      pathExists: () => false });
+    const failed = JSON.parse(envelope.chunks.join(""));
+    expect(failed.ok).toBe(false);
+    expect(failed.errors[0]).toMatchObject({ category: "general", message: "GitHub answered 503" });
+    expect(failed.meta.sourceLayer).toBe("curated");
     const err = capture();
     expect(await handleUpdateCommand(["now"], { json: false, jsonEnvelope: false, stderr: err.stream as never })).toBe(5);
     expect(err.chunks.join("")).toContain("linearctl update check");
