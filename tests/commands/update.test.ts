@@ -24,6 +24,8 @@ describe("update check", () => {
     expect(detectInstallMethod("/home/q/.npm-global/lib/node_modules/@qwrobinson/linearctl/dist/cli.js", none)).toBe("npm");
     expect(detectInstallMethod("/opt/homebrew/Cellar/linearctl/0.8.13/bin/linearctl", none)).toBe("homebrew");
     expect(detectInstallMethod("/home/q/src/linearctl/src/index.ts", none)).toBe("source");
+    expect(detectInstallMethod("/home/q/code/linearctl/src/cli/main.ts", none)).toBe("source");
+    expect(detectInstallMethod("/home/q/code/linearctl/dist/cli/main.js", none)).toBe("source");
     expect(detectInstallMethod("/home/q/.local/bin/linearctl", none)).toBe("binary");
     expect(detectInstallMethod("/usr/bin/linearctl", (p) => p === "/var/lib/dpkg/info/linearctl.list")).toBe("deb");
     expect(detectInstallMethod("/usr/bin/linearctl", (p) => p === "/var/lib/pacman/local",
@@ -39,6 +41,9 @@ describe("update check", () => {
     const binary = await checkForUpdate({ fetchImpl: release("v0.9.0"), executablePath: "/home/q/.local/bin/linearctl",
       currentVersion: "0.8.13", pathExists: () => false });
     expect(binary.recommendation).toBe(`Rerun the installer: ${INSTALL_COMMAND}`);
+    const windows = await checkForUpdate({ fetchImpl: release("v0.9.0"), executablePath: "C:\\Users\\q\\bin\\linearctl.exe",
+      currentVersion: "0.8.13", pathExists: () => false, platform: "win32" });
+    expect(windows.recommendation).toContain("install.ps1");
     const current = await checkForUpdate({ fetchImpl: release("v0.8.13"), executablePath: npm, currentVersion: "0.8.13" });
     expect(current.updateAvailable).toBe(false);
     expect(current.recommendation).toBe("Up to date");

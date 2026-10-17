@@ -12,6 +12,8 @@ import { failureEnvelope, successEnvelope } from "../core/output/envelope.js";
 
 export const RELEASES_URL = "https://api.github.com/repos/qwrnet/linearctl/releases/latest";
 export const INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh";
+export const WINDOWS_INSTALL_COMMAND =
+  "Rerun install.ps1 as in the README's Windows section (download https://raw.githubusercontent.com/qwrnet/linearctl/main/install.ps1 and run it)";
 const CHECK_TIMEOUT_MS = 5_000;
 
 export type InstallMethod = "npm" | "homebrew" | "aur" | "deb" | "binary" | "source";
@@ -31,6 +33,7 @@ export interface UpdateCommandOptions extends CommandOutputOptions {
   currentVersion?: string;
   pathExists?: (path: string) => boolean;
   listDir?: (path: string) => string[];
+  platform?: NodeJS.Platform;
 }
 
 const RECOMMENDATIONS: Record<InstallMethod, string> = {
@@ -51,7 +54,8 @@ export function detectInstallMethod(
   const path = executablePath.replace(/\\/g, "/");
   if (path.includes("/node_modules/@qwrobinson/linearctl/")) return "npm";
   if (path.includes("/Cellar/") || path.includes("/homebrew/") || path.includes("/.linuxbrew/")) return "homebrew";
-  if (/\/(src|dist)\/[^/]+\.(ts|js)$/.test(path) && !path.includes("/node_modules/")) return "source";
+  // A checkout run directly: bun src/cli/main.ts, node dist/cli/main.js (or src/index.ts).
+  if (/\/(src|dist)\/(.+\/)?[^/]+\.(ts|js)$/.test(path) && !path.includes("/node_modules/")) return "source";
   if (path === "/usr/bin/linearctl") {
     try {
       if (pathExists("/var/lib/pacman/local") &&
@@ -93,7 +97,9 @@ export async function checkForUpdate(options: Partial<UpdateCommandOptions> = {}
     }
   }
   const installMethod = detectInstallMethod(executable, options.pathExists, options.listDir);
-  const recommendation = RECOMMENDATIONS[installMethod];
+  const windows = (options.platform ?? process.platform) === "win32";
+  const recommendation = installMethod === "binary" && windows
+    ? `Rerun the installer: ${WINDOWS_INSTALL_COMMAND}` : RECOMMENDATIONS[installMethod];
   const fetchImpl = options.fetchImpl ?? fetch;
   try {
     const response = await fetchImpl(RELEASES_URL, {
