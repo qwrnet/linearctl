@@ -310,6 +310,15 @@ linearctl skills list [--json]
 
 Installation auto-discovers Claude Code and Codex targets. Listing always checks both tools at user and project scope; JSON entries include `installs[]` records with `tool`, `scope`, `path`, `installed`, and `upToDate`, plus a per-target `error` when a path cannot be inspected.
 
+## Update
+
+```bash
+# Compare the installed version with the latest release and print how to update
+linearctl update check [--json]
+```
+
+It never replaces the binary. JSON has `currentVersion`, `latestVersion`, `updateAvailable`, `installMethod` (`npm`, `homebrew`, `aur`, `deb`, `binary` or `source`) and `recommendation`; when GitHub can't be reached, `latestVersion` is `null`, `error` says why, and the exit code is 1. See [Distribution and updates](distribution.md).
+
 ## Generated API
 
 The generated layer covers any Linear API resource not handled by curated commands.
