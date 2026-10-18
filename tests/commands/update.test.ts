@@ -83,5 +83,12 @@ describe("update check", () => {
     const err = capture();
     expect(await handleUpdateCommand(["now"], { json: false, jsonEnvelope: false, stderr: err.stream as never })).toBe(5);
     expect(err.chunks.join("")).toContain("linearctl update check");
+    for (const args of [[], ["now"], ["check", "extra"]]) {
+      const usage = capture();
+      expect(await handleUpdateCommand(args, { json: false, jsonEnvelope: true, stdout: usage.stream as never })).toBe(5);
+      const body = JSON.parse(usage.chunks.join(""));
+      expect(body.ok).toBe(false);
+      expect(body.errors[0]).toMatchObject({ category: "validation", message: "usage: linearctl update check [--json]" });
+    }
   });
 });

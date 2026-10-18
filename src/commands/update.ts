@@ -9,6 +9,7 @@ import packageJson from "../../package.json" with { type: "json" };
 import { commandIO, type CommandOutputOptions } from "../core/runtime/options.js";
 import { ExitCode } from "../core/errors/exit-codes.js";
 import { failureEnvelope, successEnvelope } from "../core/output/envelope.js";
+import { emitValidationError } from "../core/output/validation-error.js";
 
 export const RELEASES_URL = "https://api.github.com/repos/qwrnet/linearctl/releases/latest";
 export const INSTALLER_URL = "https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh";
@@ -133,11 +134,10 @@ export async function checkForUpdate(options: Partial<UpdateCommandOptions> = {}
 }
 
 export async function handleUpdateCommand(positionals: string[], options: UpdateCommandOptions): Promise<number> {
-  const { stdout, stderr } = commandIO(options);
+  const { stdout } = commandIO(options);
   const [subcommand] = positionals;
-  if (subcommand !== "check") {
-    stderr.write("Error: usage: linearctl update check [--json]\n");
-    return ExitCode.ValidationError;
+  if (subcommand !== "check" || positionals.length > 1) {
+    return emitValidationError("usage: linearctl update check [--json]", options);
   }
   const result = await checkForUpdate(options);
   if (options.jsonEnvelope) {
