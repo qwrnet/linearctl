@@ -39,11 +39,11 @@ describe("update check", () => {
     expect(newer).toEqual({ currentVersion: "0.8.13", latestVersion: "0.9.0", updateAvailable: true,
       installMethod: "npm", recommendation: "npm install -g @qwrobinson/linearctl@latest" });
     const binary = await checkForUpdate({ fetchImpl: release("v0.9.0"), executablePath: "/home/q/.local/bin/linearctl",
-      currentVersion: "0.8.13", pathExists: () => false });
+      currentVersion: "0.8.13", pathExists: () => false, platform: "linux" });
     expect(binary.recommendation).toBe(
       `Rerun the installer: curl -fsSL ${INSTALLER_URL} | LINEAR_NO_DEB=1 LINEAR_INSTALL_DIR='/home/q/.local/bin' sh`);
     const custom = await checkForUpdate({ fetchImpl: release("v0.9.0"), executablePath: "/opt/my tools/it's/linearctl",
-      currentVersion: "0.8.13", pathExists: () => false });
+      currentVersion: "0.8.13", pathExists: () => false, platform: "linux" });
     expect(custom.recommendation).toContain(`LINEAR_INSTALL_DIR='/opt/my tools/it'\\''s' sh`);
     const deb = await checkForUpdate({ fetchImpl: release("v0.9.0"), executablePath: "/usr/bin/linearctl",
       currentVersion: "0.8.13", pathExists: (p) => p === "/var/lib/dpkg/info/linearctl.list" });
