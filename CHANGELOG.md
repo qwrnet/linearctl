@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.14] - 2026-10-18
+
 ### Added
 
 - `linearctl update check` compares the installed version with the latest GitHub release and recommends the update command for how linearctl was installed (package manager, npm, raw binary or checkout) instead of replacing the binary. The distribution and update policy is in `docs/distribution.md`.
