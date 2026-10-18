@@ -125,6 +125,9 @@ Raw GraphQL should not be used merely because it is possible. It is the fallback
 - `linearctl skills install [--json]` — auto-detect agents and install skill files
 - `linearctl skills list --json` — list embedded skills plus install status, paths, and `upToDate` state for Claude Code and Codex at user and project scope; uninspectable targets report a per-target `error` without hiding other results
 
+### Updates
+- `linearctl update check --json` — compare the installed version with the latest GitHub release; returns `currentVersion`, `latestVersion`, `updateAvailable`, `installMethod` and `recommendation`. It never updates anything: run the recommended command (the package manager's for npm/Homebrew/AUR installs; rerunning `install.sh` for raw binaries), and only when the user asks. Exit 1 with `latestVersion: null` means GitHub couldn't be reached.
+
 ### Schema
 - `linearctl schema version --json`
 - `linearctl schema pull --json`
