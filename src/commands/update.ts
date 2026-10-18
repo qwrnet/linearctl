@@ -11,7 +11,8 @@ import { ExitCode } from "../core/errors/exit-codes.js";
 import { failureEnvelope, successEnvelope } from "../core/output/envelope.js";
 
 export const RELEASES_URL = "https://api.github.com/repos/qwrnet/linearctl/releases/latest";
-export const INSTALL_COMMAND = "curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh";
+export const INSTALLER_URL = "https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh";
+export const INSTALL_COMMAND = `curl -fsSL ${INSTALLER_URL} | sh`;
 export const WINDOWS_INSTALL_COMMAND =
   "Rerun install.ps1 as in the README's Windows section (download https://raw.githubusercontent.com/qwrnet/linearctl/main/install.ps1 and run it)";
 const CHECK_TIMEOUT_MS = 5_000;
@@ -44,6 +45,17 @@ const RECOMMENDATIONS: Record<InstallMethod, string> = {
   binary: `Rerun the installer: ${INSTALL_COMMAND}`,
   source: "git pull && bun install && bun run build",
 };
+
+/**
+ * The installer command that replaces the raw binary at [executable]: into its own directory, and
+ * never as a .deb, which would land in /usr/bin and leave this copy shadowing it on PATH.
+ */
+export function binaryInstallCommand(executable: string): string {
+  const path = executable.replace(/\\/g, "/");
+  const dir = path.slice(0, path.lastIndexOf("/")) || "/";
+  const quoted = `'${dir.replace(/'/g, "'\\''")}'`;
+  return `curl -fsSL ${INSTALLER_URL} | LINEAR_NO_DEB=1 LINEAR_INSTALL_DIR=${quoted} sh`;
+}
 
 /** How linearctl was installed, from where its executable lives; a guess, never a reason to mutate it. */
 export function detectInstallMethod(
@@ -98,8 +110,9 @@ export async function checkForUpdate(options: Partial<UpdateCommandOptions> = {}
   }
   const installMethod = detectInstallMethod(executable, options.pathExists, options.listDir);
   const windows = (options.platform ?? process.platform) === "win32";
-  const recommendation = installMethod === "binary" && windows
-    ? `Rerun the installer: ${WINDOWS_INSTALL_COMMAND}` : RECOMMENDATIONS[installMethod];
+  const recommendation = installMethod !== "binary" ? RECOMMENDATIONS[installMethod]
+    : windows ? `Rerun the installer: ${WINDOWS_INSTALL_COMMAND}`
+    : `Rerun the installer: ${binaryInstallCommand(executable)}`;
   const fetchImpl = options.fetchImpl ?? fetch;
   try {
     const response = await fetchImpl(RELEASES_URL, {

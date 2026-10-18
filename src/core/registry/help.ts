@@ -28,6 +28,7 @@ const COMMAND_DETAILS: Record<string, CommandDetails> = {
   auth: { summary: "Profiles and authentication", group: "Setup", topLevel: true },
   schema: { summary: "Schema version, pull, and drift checks", group: "Setup", topLevel: true },
   skills: { summary: "Install bundled agent skills", group: "Setup", topLevel: true },
+  update: { summary: "Check for a newer release and how to update", group: "Setup", topLevel: true },
   gql: { summary: "Raw GraphQL query, mutation, and introspection", group: "Setup" },
 };
 

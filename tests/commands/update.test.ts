@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkForUpdate, compareVersions, detectInstallMethod, handleUpdateCommand, INSTALL_COMMAND } from "../../src/commands/update.js";
+import { checkForUpdate, compareVersions, detectInstallMethod, handleUpdateCommand, INSTALL_COMMAND, INSTALLER_URL } from "../../src/commands/update.js";
 
 function release(tag: string, status = 200): typeof fetch {
   return (async () => new Response(JSON.stringify({ tag_name: tag }), { status })) as unknown as typeof fetch;
@@ -40,7 +40,14 @@ describe("update check", () => {
       installMethod: "npm", recommendation: "npm install -g @qwrobinson/linearctl@latest" });
     const binary = await checkForUpdate({ fetchImpl: release("v0.9.0"), executablePath: "/home/q/.local/bin/linearctl",
       currentVersion: "0.8.13", pathExists: () => false });
-    expect(binary.recommendation).toBe(`Rerun the installer: ${INSTALL_COMMAND}`);
+    expect(binary.recommendation).toBe(
+      `Rerun the installer: curl -fsSL ${INSTALLER_URL} | LINEAR_NO_DEB=1 LINEAR_INSTALL_DIR='/home/q/.local/bin' sh`);
+    const custom = await checkForUpdate({ fetchImpl: release("v0.9.0"), executablePath: "/opt/my tools/it's/linearctl",
+      currentVersion: "0.8.13", pathExists: () => false });
+    expect(custom.recommendation).toContain(`LINEAR_INSTALL_DIR='/opt/my tools/it'\\''s' sh`);
+    const deb = await checkForUpdate({ fetchImpl: release("v0.9.0"), executablePath: "/usr/bin/linearctl",
+      currentVersion: "0.8.13", pathExists: (p) => p === "/var/lib/dpkg/info/linearctl.list" });
+    expect(deb.recommendation).toBe(`Rerun the installer, which installs the new .deb: ${INSTALL_COMMAND}`);
     const windows = await checkForUpdate({ fetchImpl: release("v0.9.0"), executablePath: "C:\\Users\\q\\bin\\linearctl.exe",
       currentVersion: "0.8.13", pathExists: () => false, platform: "win32" });
     expect(windows.recommendation).toContain("install.ps1");
