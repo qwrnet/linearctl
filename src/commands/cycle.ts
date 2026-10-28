@@ -19,6 +19,7 @@ export interface CycleCommandOptions extends CommandOptions {
   allTeams?: boolean;
   startsAt?: string;
   endsAt?: string;
+  count?: string;
   // pagination flags
   all?: boolean;
   max?: number;
@@ -90,11 +91,32 @@ query CyclesCurrent($filter: CycleFilter!) {
 }
 ${CURATED_CYCLE_DETAIL_FRAGMENT}`;
 
-const CYCLE_CREATE_MUTATION = `
-mutation CycleCreate($input: CycleCreateInput!) {
-  cycleCreate(input: $input) {
+const CYCLE_TEAM_SETTINGS_QUERY = `
+query CycleTeamSettings($id: String!) {
+  team(id: $id) {
+    id
+    key
+    name
+    cyclesEnabled
+    upcomingCycleCount
+  }
+}`;
+
+const CYCLE_TEAM_UPDATE_MUTATION = `
+mutation CycleTeamUpdate($id: String!, $input: TeamUpdateInput!) {
+  teamUpdate(id: $id, input: $input) {
     success
-    cycle {
+    team {
+      id
+      upcomingCycleCount
+    }
+  }
+}`;
+
+const CYCLE_UPCOMING_QUERY = `
+query CyclesUpcoming($filter: CycleFilter!) {
+  cycles(first: 50, filter: $filter) {
+    nodes {
       ...CuratedCycleBase
     }
   }
@@ -454,63 +476,125 @@ async function handleCycleCurrent(options: CycleCommandOptions): Promise<number>
   }
 }
 
-async function handleCycleCreate(options: CycleCommandOptions): Promise<number> {
+export const CYCLE_CREATE_UNSUPPORTED_MESSAGE =
+  "cycle create is no longer supported: Linear removed the cycleCreate mutation. " +
+  "Cycles are generated from the team's cycle settings. Run " +
+  "'linearctl cycle ensure-upcoming --team <id> --count <n>' to have Linear generate more upcoming cycles, " +
+  "then rename or re-date one with 'linearctl cycle update <id> --name <text> --starts-at <date> --ends-at <date>'.";
+
+interface RawTeamCycleSettings {
+  id: string;
+  key: string;
+  name: string;
+  cyclesEnabled: boolean;
+  upcomingCycleCount: number;
+}
+
+function parseUpcomingCount(value: string | undefined): number | undefined {
+  if (value === undefined || !/^\d+$/.test(value)) {
+    return undefined;
+  }
+  const count = Number(value);
+  return count >= 1 ? count : undefined;
+}
+
+async function handleCycleEnsureUpcoming(options: CycleCommandOptions): Promise<number> {
   const { stdout } = commandIO(options);
-  if (options.team === undefined) {
-    return emitValidationError("--team is required for cycle create.", options);
-  }
-
-  const input: Record<string, unknown> = {};
-
-  if (options.name !== undefined) {
-    input.name = options.name;
-  }
-  if (options.description !== undefined) {
-    input.description = options.description;
-  }
-  if (options.startsAt !== undefined) {
-    input.startsAt = options.startsAt;
-  }
-  if (options.endsAt !== undefined) {
-    input.endsAt = options.endsAt;
-  }
-
-  input.teamId = options.team;
-
-  if (options.dryRun === true) {
-    return emitDryRunResult("create", "cycle", input, options);
+  const count = parseUpcomingCount(options.count);
+  if (count === undefined) {
+    return emitValidationError("cycle ensure-upcoming requires --count <n> with a positive integer.", options);
   }
 
   const ctx = createCommandContext(options);
 
   try {
-    const resolverOpts = await ctx.resolverOptions();
-    input.teamId = looksLikeId(options.team!) ? options.team : await resolveTeamId(options.team!, resolverOpts);
-
-    const response = await ctx.graphql<{
-      cycleCreate: { success: boolean; cycle: RawCycle | null };
-    }>(CYCLE_CREATE_MUTATION, { input });
-
-    if (
-      ctx.hasErrors(response.body.errors) ||
-      response.body.data?.cycleCreate?.cycle === null ||
-      response.body.data?.cycleCreate?.cycle === undefined
-    ) {
-      const errors = ctx.mapGraphQLErrors(response.body.errors);
-      return ctx.emitFailure(
-        errors.length > 0 ? errors : [{ category: "general", message: "Cycle creation failed" }]
-      );
+    const profile = options.team === undefined ? await ctx.resolveProfile() : undefined;
+    const effectiveTeam = options.team ?? profile?.metadata.defaultTeam;
+    if (effectiveTeam === undefined) {
+      return emitValidationError("cycle ensure-upcoming requires --team or a default team set via 'linearctl team get <key> --set-default'.", options);
     }
 
-    const cycle = normalizeCycle(response.body.data.cycleCreate.cycle);
+    if (options.dryRun === true) {
+      return emitDryRunResult("ensure-upcoming", "cycle", { teamId: effectiveTeam, upcomingCycleCount: count }, options);
+    }
+
+    const resolverOpts = await ctx.resolverOptions();
+    const teamId = looksLikeId(effectiveTeam) ? effectiveTeam : await resolveTeamId(effectiveTeam, resolverOpts);
+
+    const teamResponse = await ctx.graphql<{ team: RawTeamCycleSettings | null }>(
+      CYCLE_TEAM_SETTINGS_QUERY,
+      { id: teamId }
+    );
+
+    if (ctx.hasErrors(teamResponse.body.errors)) {
+      return ctx.emitFailure(ctx.mapGraphQLErrors(teamResponse.body.errors));
+    }
+
+    const team = teamResponse.body.data?.team;
+    if (team === null || team === undefined) {
+      return ctx.emitNotFound("Team not found");
+    }
+
+    if (!team.cyclesEnabled) {
+      return emitValidationError(`Cycles are disabled for team ${team.key}; enable cycles in the team's settings first.`, options);
+    }
+
+    const previousUpcomingCycleCount = team.upcomingCycleCount;
+    let upcomingCycleCount = previousUpcomingCycleCount;
+    const updated = previousUpcomingCycleCount < count;
+
+    if (updated) {
+      // upcomingCycleCount is a Float in the schema; passing the whole input object
+      // avoids declaring it as Int!, which Linear rejects with HTTP 400.
+      const updateResponse = await ctx.graphql<{
+        teamUpdate: { success: boolean; team: { id: string; upcomingCycleCount: number } | null };
+      }>(CYCLE_TEAM_UPDATE_MUTATION, { id: team.id, input: { upcomingCycleCount: count } });
+
+      if (ctx.hasErrors(updateResponse.body.errors) || updateResponse.body.data?.teamUpdate?.success !== true) {
+        const errors = ctx.mapGraphQLErrors(updateResponse.body.errors);
+        return ctx.emitFailure(
+          errors.length > 0 ? errors : [{ category: "general", message: "Updating the team's upcoming cycle count failed" }]
+        );
+      }
+
+      upcomingCycleCount = updateResponse.body.data.teamUpdate.team?.upcomingCycleCount ?? count;
+    }
+
+    const cyclesResponse = await ctx.graphql<{ cycles: { nodes: RawCycle[] } }>(
+      CYCLE_UPCOMING_QUERY,
+      { filter: { team: { id: { eq: team.id } }, isFuture: { eq: true } } }
+    );
+
+    if (ctx.hasErrors(cyclesResponse.body.errors)) {
+      return ctx.emitFailure(ctx.mapGraphQLErrors(cyclesResponse.body.errors));
+    }
+
+    const upcomingCycles = (cyclesResponse.body.data?.cycles?.nodes ?? [])
+      .map(normalizeCycle)
+      .sort((a, b) => a.number - b.number);
+
+    const result = {
+      team: { id: team.id, key: team.key, name: team.name },
+      previousUpcomingCycleCount,
+      upcomingCycleCount,
+      updated,
+      upcomingCycles
+    };
 
     if (options.jsonEnvelope) {
-      return ctx.emitSuccess(cycle);
+      return ctx.emitSuccess(result);
     } else if (options.json) {
-      stdout.write(`${JSON.stringify(cycle, null, 2)}\n`);
+      stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     } else {
-      const label = cycle.name !== null ? cycle.name : `Cycle #${cycle.number}`;
-      stdout.write(`Created cycle: ${label}\n`);
+      stdout.write(
+        updated
+          ? `Raised upcoming cycle count for ${team.key} from ${previousUpcomingCycleCount} to ${upcomingCycleCount}\n`
+          : `Team ${team.key} already keeps ${previousUpcomingCycleCount} upcoming cycles\n`
+      );
+      for (const cycle of upcomingCycles) {
+        stdout.write("\n");
+        printHumanCycle(cycle, options);
+      }
     }
 
     return ExitCode.Success;
@@ -614,10 +698,14 @@ export async function handleCycleCommand(
   }
 
   if (subcommand === "create") {
+    return emitValidationError(CYCLE_CREATE_UNSUPPORTED_MESSAGE, options);
+  }
+
+  if (subcommand === "ensure-upcoming") {
     if (rest.length > 0) {
-      return emitValidationError("cycle create does not accept positional arguments.", options);
+      return emitValidationError("cycle ensure-upcoming does not accept positional arguments.", options);
     }
-    return handleCycleCreate(options);
+    return handleCycleEnsureUpcoming(options);
   }
 
   if (subcommand === "update") {
@@ -642,5 +730,5 @@ export async function handleCycleCommand(
     return handleCycleArchive(id, options, subcommand);
   }
 
-  return emitValidationError("unsupported cycle command. Try linearctl cycle get, list, current, create, update, archive, or delete.", options);
+  return emitValidationError("unsupported cycle command. Try linearctl cycle get, list, current, ensure-upcoming, update, archive, or delete.", options);
 }

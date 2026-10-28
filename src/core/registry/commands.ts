@@ -134,13 +134,13 @@ export const COMMAND_REGISTRY: readonly CommandRegistration[] = [
     optionKeys: [
       ...CURATED_BASE,
       ...OPTION_GROUPS.allTeams,
-      "name", "description", "team", "starts-at", "ends-at",
+      "name", "description", "team", "starts-at", "ends-at", "count",
     ],
     subcommands: {
       get:     { usage: "linearctl cycle get <id> [--json]" },
       list:    { usage: "linearctl cycle list [--team <id>] [--all-teams] [--json]" },
       current: { usage: "linearctl cycle current [--team <id>] [--json]" },
-      create:  { usage: "linearctl cycle create --team <id> [--name ...] [--starts-at ...] [--ends-at ...] [--json]" },
+      "ensure-upcoming": { usage: "linearctl cycle ensure-upcoming --team <id> --count <n> [--dry-run] [--json]" },
       update:  { usage: "linearctl cycle update <id> [--name ...] [--starts-at ...] [--ends-at ...] [--json]" },
       archive: { usage: "linearctl cycle archive <id> [--json]" },
       delete:  { usage: "linearctl cycle delete <id> [--json]" },
@@ -150,7 +150,7 @@ export const COMMAND_REGISTRY: readonly CommandRegistration[] = [
       ...curatedOptions(args, env),
       ...paginationOptions(args),
       ...teamFilterOptions(args),
-      ...pickFields(args, "name", "description", "startsAt", "endsAt"),
+      ...pickFields(args, "name", "description", "startsAt", "endsAt", "count"),
     }),
   },
 

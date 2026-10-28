@@ -46,6 +46,7 @@ export const OPTION_CATALOG: Record<string, OptionSpec> = {
   "content-file": { type: "string" },
   priority: { type: "string" },
   estimate: { type: "string" },
+  count: { type: "string" },
   "due-date": { type: "string" },
   assignee: { type: "string" },
   label: { type: "string" },

@@ -480,11 +480,11 @@
     ]
   },
   {
-    "commandPath": "linearctl cycle create",
-    "usage": "linearctl cycle create --team <id> [--name ...] [--starts-at ...] [--ends-at ...] [--json]",
+    "commandPath": "linearctl cycle ensure-upcoming",
+    "usage": "linearctl cycle ensure-upcoming --team <id> --count <n> [--dry-run] [--json]",
     "layer": "curated",
     "resource": "cycle",
-    "operation": "create",
+    "operation": "ensure-upcoming",
     "stability": "stable",
     "preferredForAgents": true,
     "safety": "safe",

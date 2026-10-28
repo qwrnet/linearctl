@@ -65,6 +65,7 @@ export interface ParsedCliArguments {
   contentFile?: string;
   priority?: string;
   estimate?: string;
+  count?: string;
   dueDate?: string;
   assignee?: string;
   label?: string;
