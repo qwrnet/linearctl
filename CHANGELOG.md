@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.15] - 2026-10-28
+
+### Added
+
+- `linearctl cycle ensure-upcoming --team <id> --count <n>` raises the team's `upcomingCycleCount` (never lowers it) and returns the upcoming cycles, which can then be renamed or re-dated with `cycle update`.
+
+### Fixed
+
+- `linearctl cycle create` fails fast with guidance instead of a raw API error, because Linear removed the `cycleCreate` mutation. It is no longer listed in help or curated metadata (#196).
+
 ## [0.8.14] - 2026-10-18
 
 ### Added
