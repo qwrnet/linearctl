@@ -77,12 +77,17 @@ For **each** architecture, CI:
    maintainers can retrieve Apple's failure report with `xcrun notarytool log`
    using that submission ID and their notarization credentials.
 3. Requires `Accepted`, verifies the online notarization ticket, and runs
-   `--version` and `--help` before uploading the build artifact.
+   `--version` and `--help` before uploading the build artifact. Apple can
+   report `Accepted` before the ticket is published, so
+   `scripts/check-macos-notarization.sh` retries the lookup with backoff for
+   about five minutes, logging each attempt, and fails if the ticket never
+   appears. Signature and Developer ID checks run before it and are not retried.
 4. Downloads the artifact on a **fresh native macOS runner**, without signing
    credentials or the build machine's ticket cache. Restores executable mode,
    sets `com.apple.quarantine`, and requires Gatekeeper to be enabled.
-5. Runs strict signature verification and `codesign --check-notarization` with a
-   `notarized` requirement. This is Apple's prescribed assessment for non-app
+5. Runs strict signature verification with a Developer ID requirement, then
+   `codesign --check-notarization` with a `notarized` requirement (same bounded
+   retry as step 3). This is Apple's prescribed assessment for non-app
    code; `spctl --assess --type execute` and `syspolicy_check distribution` target
    app bundles, not standalone command-line tools.
 6. Runs the quarantined binary's `--version` and `--help` with an empty environment

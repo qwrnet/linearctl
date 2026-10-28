@@ -2,6 +2,7 @@
 # Run on a fresh, native-architecture macOS runner without signing credentials.
 set -euo pipefail
 binary="${1:?Usage: bash scripts/verify-macos-release.sh <binary>}"
+script_dir="$(cd "$(dirname "$0")" && pwd)"
 
 # Artifact transport does not preserve executable permissions or quarantine.
 chmod +x "$binary"
@@ -9,9 +10,11 @@ xattr -w com.apple.quarantine "0083;$(printf '%x' "$(date +%s)");linearctl-relea
 spctl --status | grep -qx 'assessments enabled'
 codesign --verify --strict --verbose=4 "$binary"
 # Apple's prescribed check for non-app code (spctl --type execute is for apps).
-codesign --verify --strict --verbose=4 --check-notarization \
-  -R='anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists and notarized' \
+# The Developer ID requirement is fatal at once; only the ticket lookup retries.
+codesign --verify --strict --verbose=4 \
+  -R='anchor apple generic and certificate leaf[field.1.2.840.113635.100.6.1.13] exists' \
   "$binary"
+bash "$script_dir/check-macos-notarization.sh" "$binary"
 
 # Keep quarantine intact. Use a clean HOME and system-only PATH to ensure the
 # compiled binary does not depend on Bun, repository files, or user config.

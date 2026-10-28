@@ -104,7 +104,8 @@ if [[ "$notary_result" -ne 0 ]]; then
   exit "$notary_result"
 fi
 
-# Raw executables cannot be stapled. Require an online ticket lookup instead.
-codesign --verify --strict --verbose=4 -R=notarized --check-notarization "$binary"
+# Raw executables cannot be stapled. Require an online ticket lookup instead,
+# retrying while Apple publishes the ticket for the just-accepted submission.
+bash "$script_dir/check-macos-notarization.sh" "$binary"
 "$binary" --version
 "$binary" --help

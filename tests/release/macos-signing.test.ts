@@ -52,7 +52,14 @@ case "$tool" in
       *--force*)
         grep -q '/linearctl-sign\\.' "$MOCK_SEARCH_LIST"
         [[ "\${MOCK_FAIL:-}" != sign ]] ;;
-      *--check-notarization*) [[ "\${MOCK_FAIL:-}" != ticket ]] ;;
+      *--check-notarization*)
+        [[ "\${MOCK_FAIL:-}" != ticket ]]
+        # Simulate Apple publishing the ticket after N failed lookups.
+        failures="$(cat "$MOCK_TICKET_FAILURES" 2>/dev/null || echo 0)"
+        if [[ "$failures" -gt 0 ]]; then
+          echo "$((failures - 1))" > "$MOCK_TICKET_FAILURES"
+          exit 3
+        fi ;;
       *--verify*) [[ "\${MOCK_FAIL:-}" != verify ]] ;;
     esac ;;
   ditto) touch "\${!#}" ;;
@@ -75,6 +82,8 @@ esac
       MOCK_SEARCH_LIST: join(dir, "search-list"),
       MOCK_IDENTITY: identity,
       MOCK_NOTARY_RESPONSE: JSON.stringify({ id: "submission-id", status: "Accepted" }),
+      MOCK_TICKET_FAILURES: join(dir, "ticket-failures"),
+      MACOS_NOTARIZATION_RETRY_DELAYS: "0 0",
       MACOS_CERTIFICATE_BASE64: Buffer.from("test certificate").toString("base64"),
       MACOS_CERTIFICATE_PASSWORD: "test-only",
       MACOS_SIGN_IDENTITY: identity,
@@ -88,6 +97,9 @@ esac
 
   function run(script = "sign-macos-release.sh") {
     return spawnSync("bash", [join(root, "scripts", script), binary], { env, encoding: "utf8" });
+  }
+  function ticketChecks() {
+    return log().split("\n").filter((line) => line.includes("--check-notarization")).length;
   }
   function log() {
     return readFileSync(logPath, "utf8");
@@ -167,6 +179,49 @@ esac
     },
   );
 
+  it.each(["sign-macos-release.sh", "verify-macos-release.sh"])(
+    "retries the ticket lookup in %s until Apple publishes it", (script) => {
+      writeFileSync(env.MOCK_TICKET_FAILURES!, "2");
+      const result = run(script);
+      expect(result.status, result.stderr).toBe(0);
+      expect(ticketChecks()).toBe(3);
+      expect(result.stderr).toContain("attempt 3/3");
+      expect(result.stderr).toContain("retrying in 0s");
+      expect(log()).toContain("binary --help");
+      if (script === "sign-macos-release.sh") expectCleanedUp();
+    },
+  );
+
+  it.each(["sign-macos-release.sh", "verify-macos-release.sh"])(
+    "fails in %s when the ticket never appears within the retry budget", (script) => {
+      writeFileSync(env.MOCK_TICKET_FAILURES!, "3");
+      const result = run(script);
+      expect(result.status).toBe(3);
+      expect(ticketChecks()).toBe(3);
+      expect(result.stderr).toContain("not available after 3 attempts");
+      expect(log()).not.toContain("binary --");
+      if (script === "sign-macos-release.sh") expectCleanedUp();
+    },
+  );
+
+  it.each(["sign-macos-release.sh", "verify-macos-release.sh"])(
+    "does not retry a %s signature verification failure", (script) => {
+      env.MOCK_FAIL = "verify";
+      writeFileSync(env.MOCK_TICKET_FAILURES!, "2");
+      expect(run(script).status).not.toBe(0);
+      expect(ticketChecks()).toBe(0);
+      expect(log().split("\n").filter((line) => line.startsWith("codesign --verify")).length).toBe(1);
+    },
+  );
+
+  it("waits about five minutes for the ticket by default", () => {
+    const script = readFileSync(join(root, "scripts/check-macos-notarization.sh"), "utf8");
+    const delays = /MACOS_NOTARIZATION_RETRY_DELAYS:-([\d ]+)\}/.exec(script)?.[1]?.split(" ").map(Number) ?? [];
+    const total = delays.reduce((sum, delay) => sum + delay, 0);
+    expect(total).toBeGreaterThanOrEqual(240);
+    expect(total).toBeLessThanOrEqual(360);
+  });
+
   it.each(["Invalid", "In Progress", "Rejected", undefined])("rejects notarization status %s even with exit zero", (status) => {
     env.MOCK_NOTARY_RESPONSE = JSON.stringify({ id: "submission-id", status });
     expect(run().status).not.toBe(0);
@@ -188,8 +243,9 @@ esac
     const commands = log();
     expect(commands).toContain("xattr -w com.apple.quarantine 0083;");
     expect(commands).toContain("codesign --verify --strict --verbose=4");
-    expect(commands).toContain("--check-notarization");
-    expect(commands).toContain("exists and notarized");
+    expect(commands).toContain("certificate leaf[field.1.2.840.113635.100.6.1.13] exists");
+    expect(commands).toContain("-R=notarized --check-notarization");
+    expect(commands.indexOf("exists")).toBeLessThan(commands.indexOf("--check-notarization"));
     expect(commands.indexOf("--check-notarization")).toBeLessThan(commands.indexOf("binary --version"));
     expect(commands).toContain("binary --help");
     expect(commands).not.toContain("security ");
