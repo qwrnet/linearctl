@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Retry the macOS release's online notarization ticket check for about five minutes instead of failing the release when Apple has accepted a binary but not yet published its ticket. Signature failures still fail immediately.
+
 ## [0.8.15] - 2026-10-28
 
 ### Added
