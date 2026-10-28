@@ -156,4 +156,4 @@ Curated commands automatically resolve friendly names to Linear UUIDs:
 
 If a value looks like a UUID, it is passed through directly. On ambiguous matches, the CLI errors and lists candidates.
 
-Name resolution works on: issue create, issue update, issue assign, issue list, project get, project create, cycle create, cycle list, label create, label list.
+Name resolution works on: issue create, issue update, issue assign, issue list, project get, project create, cycle ensure-upcoming, cycle list, label create, label list.

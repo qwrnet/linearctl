@@ -170,45 +170,175 @@ describe("handleCycleCommand — cycle get", () => {
 });
 
 describe("handleCycleCommand — cycle create", () => {
-  it("returns created cycle with --team", async () => {
+  it("fails fast with guidance because Linear removed cycleCreate", async () => {
     const directory = await mkdtemp(join(tmpdir(), "linear-cli-cycle-"));
     const paths = await writeProfileFiles(directory);
-    const createdCycle = makeRawCycle({ number: 43, name: "Sprint 43" });
-    const fetchImpl = makeFetch({
-      data: { cycleCreate: { success: true, cycle: createdCycle } }
-    });
+    const fetchImpl = vi.fn() as unknown as FetchLike;
     const output = captureOutput();
 
     try {
       const exitCode = await handleCycleCommand(["create"], {
         ...baseOptions(paths),
         team: "a0000000-0000-0000-0000-000000000001",
+        name: "Sprint 43",
         fetchImpl
       });
 
-      expect(exitCode).toBe(0);
-      const parsed = JSON.parse(output.stdout.join(""));
-      expect(parsed.number).toBe(43);
-      expect(parsed.name).toBe("Sprint 43");
+      expect(exitCode).toBe(5);
+      expect(fetchImpl).not.toHaveBeenCalled();
+      const stderr = output.stderr.join("");
+      expect(stderr).toContain("Linear removed the cycleCreate mutation");
+      expect(stderr).toContain("cycle ensure-upcoming");
+      expect(stderr).toContain("cycle update");
     } finally {
       output.restore();
     }
   });
 
-  it("returns exit code 5 when --team is missing", async () => {
+  it("reports the guidance as a validation envelope", async () => {
     const directory = await mkdtemp(join(tmpdir(), "linear-cli-cycle-"));
     const paths = await writeProfileFiles(directory);
     const output = captureOutput();
 
     try {
       const exitCode = await handleCycleCommand(["create"], {
-        ...baseOptions(paths)
+        ...baseOptions(paths),
+        jsonEnvelope: true,
+        dryRun: true
       });
 
       expect(exitCode).toBe(5);
-      expect(output.stderr.join("")).toContain("--team is required");
+      const parsed = JSON.parse(output.stdout.join(""));
+      expect(parsed.ok).toBe(false);
+      expect(parsed.errors[0].category).toBe("validation");
+      expect(parsed.errors[0].message).toContain("cycle ensure-upcoming");
     } finally {
       output.restore();
+    }
+  });
+});
+
+describe("handleCycleCommand — cycle ensure-upcoming", () => {
+  const teamId = "a0000000-0000-0000-0000-000000000001";
+
+  function makeSequencedFetch(bodies: unknown[]) {
+    const requests: Array<{ query: string; variables: Record<string, unknown> }> = [];
+    const fetchImpl = vi.fn(async (_url: unknown, init?: { body?: unknown }) => {
+      requests.push(JSON.parse(String(init?.body)));
+      const body = bodies[requests.length - 1];
+      return new Response(JSON.stringify(body), { status: 200 });
+    }) as unknown as FetchLike;
+    return { fetchImpl, requests };
+  }
+
+  function teamSettings(overrides?: Partial<Record<string, unknown>>) {
+    return { id: teamId, key: "INF", name: "Infrastructure", cyclesEnabled: true, upcomingCycleCount: 2, ...overrides };
+  }
+
+  it("raises upcomingCycleCount and returns upcoming cycles", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "linear-cli-cycle-"));
+    const paths = await writeProfileFiles(directory);
+    const { fetchImpl, requests } = makeSequencedFetch([
+      { data: { team: teamSettings() } },
+      { data: { teamUpdate: { success: true, team: { id: teamId, upcomingCycleCount: 4 } } } },
+      { data: { cycles: { nodes: [makeRawCycle({ number: 44 }), makeRawCycle({ number: 43 })] } } }
+    ]);
+    const output = captureOutput();
+
+    try {
+      const exitCode = await handleCycleCommand(["ensure-upcoming"], {
+        ...baseOptions(paths),
+        team: teamId,
+        count: "4",
+        fetchImpl
+      });
+
+      expect(exitCode).toBe(0);
+      expect(requests[1]!.query).toContain("teamUpdate");
+      expect(requests[1]!.query).toContain("TeamUpdateInput!");
+      expect(requests[1]!.variables).toEqual({ id: teamId, input: { upcomingCycleCount: 4 } });
+      expect(requests[2]!.variables.filter).toEqual({ team: { id: { eq: teamId } }, isFuture: { eq: true } });
+
+      const parsed = JSON.parse(output.stdout.join(""));
+      expect(parsed.team).toEqual({ id: teamId, key: "INF", name: "Infrastructure" });
+      expect(parsed.previousUpcomingCycleCount).toBe(2);
+      expect(parsed.upcomingCycleCount).toBe(4);
+      expect(parsed.updated).toBe(true);
+      expect(parsed.upcomingCycles.map((cycle: { number: number }) => cycle.number)).toEqual([43, 44]);
+    } finally {
+      output.restore();
+    }
+  });
+
+  it("does not update when the team already keeps enough upcoming cycles", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "linear-cli-cycle-"));
+    const paths = await writeProfileFiles(directory);
+    const { fetchImpl, requests } = makeSequencedFetch([
+      { data: { team: teamSettings({ upcomingCycleCount: 6 }) } },
+      { data: { cycles: { nodes: [] } } }
+    ]);
+    const output = captureOutput();
+
+    try {
+      const exitCode = await handleCycleCommand(["ensure-upcoming"], {
+        ...baseOptions(paths),
+        team: teamId,
+        count: "4",
+        fetchImpl
+      });
+
+      expect(exitCode).toBe(0);
+      expect(requests).toHaveLength(2);
+      expect(requests.some((request) => request.query.includes("teamUpdate"))).toBe(false);
+      const parsed = JSON.parse(output.stdout.join(""));
+      expect(parsed.updated).toBe(false);
+      expect(parsed.upcomingCycleCount).toBe(6);
+    } finally {
+      output.restore();
+    }
+  });
+
+  it("fails with a validation error when cycles are disabled", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "linear-cli-cycle-"));
+    const paths = await writeProfileFiles(directory);
+    const { fetchImpl, requests } = makeSequencedFetch([
+      { data: { team: teamSettings({ cyclesEnabled: false }) } }
+    ]);
+    const output = captureOutput();
+
+    try {
+      const exitCode = await handleCycleCommand(["ensure-upcoming"], {
+        ...baseOptions(paths),
+        team: teamId,
+        count: "4",
+        fetchImpl
+      });
+
+      expect(exitCode).toBe(5);
+      expect(requests).toHaveLength(1);
+      expect(output.stderr.join("")).toContain("Cycles are disabled for team INF");
+    } finally {
+      output.restore();
+    }
+  });
+
+  it("rejects a missing or non-positive --count", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "linear-cli-cycle-"));
+    const paths = await writeProfileFiles(directory);
+
+    for (const count of [undefined, "0", "-1", "2.5", "abc"]) {
+      const output = captureOutput();
+      try {
+        const exitCode = await handleCycleCommand(["ensure-upcoming"], {
+          ...baseOptions(paths),
+          team: teamId,
+          ...(count === undefined ? {} : { count })
+        });
+        expect(exitCode).toBe(5);
+        expect(output.stderr.join("")).toContain("--count");
+      } finally {
+        output.restore();
+      }
     }
   });
 });

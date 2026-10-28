@@ -129,13 +129,37 @@ For `project get`, name resolution accepts exact names, unique prefixes, or uniq
 linearctl cycle get <id> --json
 linearctl cycle list [--team <name|key|id>] --json
 linearctl cycle current [--team <name|key|id>] --json
-linearctl cycle create --team <name|key|id> [--name <text>] [--starts-at <date>] [--ends-at <date>] --json
+linearctl cycle ensure-upcoming --team <name|key|id> --count <n> [--dry-run] --json
 linearctl cycle update <id> [--name <text>] [--starts-at <date>] [--ends-at <date>] --json
 linearctl cycle archive <id> --json
 linearctl cycle delete <id> --json
 ```
 
 `cycle get` and `cycle current` JSON include sprint reporting fields such as `progress`, derived `scopeCount`, `completedScopeCount`, `inProgressScopeCount`, `startedScopeCount`, issue counts, history arrays, and uncompleted issues captured on close.
+
+Linear removed the `cycleCreate` mutation, so cycles can no longer be created directly. Cycles are generated from the team's cycle settings. `cycle create` is kept only to fail fast (exit code 5, `validation` category) with this guidance; it makes no API call.
+
+To get a cycle for an irregular period, have Linear generate enough upcoming cycles and then rename or re-date one:
+
+```bash
+linearctl cycle ensure-upcoming --team INF --count 4 --json
+linearctl cycle update <cycle-id> --name "Infrastructure | 2026-11-10 | DC8.IP" \
+  --starts-at 2026-11-10T06:00:00Z --ends-at 2026-11-13T06:00:00Z --json
+```
+
+`cycle ensure-upcoming` raises the team's `upcomingCycleCount` (via `teamUpdate`) to `--count` when it is lower and never lowers it. It falls back to the profile's default team when `--team` is omitted and fails with a validation error when cycles are disabled for the team. JSON output:
+
+```json
+{
+  "team": { "id": "...", "key": "INF", "name": "Infrastructure" },
+  "previousUpcomingCycleCount": 2,
+  "upcomingCycleCount": 4,
+  "updated": true,
+  "upcomingCycles": [ /* normalized cycles with isFuture=true, ordered by number */ ]
+}
+```
+
+Linear may generate new cycles asynchronously, so `upcomingCycles` can lag right after an update; re-run `cycle list --team <team> --json` if a cycle is missing. `--dry-run` reports `{ "teamId", "upcomingCycleCount" }` without any API call. `upcomingCycleCount` is a `Float` in the schema; raw `teamUpdate` calls that declare it as `Int!` are rejected with HTTP 400.
 
 Linear does not expose hard deletion for cycles. `cycle delete` is an alias for archive and reports `requestedAction: "delete"` with `performedAction: "archive"` in JSON and dry-run output.
 

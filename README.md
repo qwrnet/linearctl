@@ -154,7 +154,7 @@ For command discovery, agents can inspect the stable curated metadata with `line
 | [issue](docs/commands.md#issue) | get, view, create, list, search, update, close, delete, assign, comment, attach-slack, bulk-update, bulk-close, bulk-archive, bulk-delete, bulk-assign |
 | [relation](docs/commands.md#relation) | list, create, delete |
 | [project](docs/commands.md#project) | get, list, create, update, create-with-issues, delete |
-| [cycle](docs/commands.md#cycle) | get, list, current, create, update, archive, delete |
+| [cycle](docs/commands.md#cycle) | get, list, current, ensure-upcoming, update, archive, delete |
 | [team](docs/commands.md#team) | get, list, members |
 | [user](docs/commands.md#user) | get, me, list |
 | [label](docs/commands.md#label) | get, list, create, delete |

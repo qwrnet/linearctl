@@ -74,7 +74,7 @@ Raw GraphQL should not be used merely because it is possible. It is the fallback
 - `linearctl cycle get <id> --json` — includes progress/scope fields (`progress`, derived `scopeCount`, `completedScopeCount`, `inProgressScopeCount`, `startedScopeCount`, issue counts, history arrays, and uncompleted issues captured on close)
 - `linearctl cycle list [--team <id>] [--all-teams] --json`
 - `linearctl cycle current [--team <id>] --json` — get the currently active cycle for a team; includes progress/scope fields
-- `linearctl cycle create --team <id> [--name <text>] [--starts-at <date>] [--ends-at <date>] --json`
+- `linearctl cycle ensure-upcoming --team <id> --count <n> [--dry-run] --json` — Linear removed `cycleCreate`; cycles are generated from team settings. This raises the team's `upcomingCycleCount` to at least `n` (never lowers it) and returns `previousUpcomingCycleCount`, `upcomingCycleCount`, `updated`, and `upcomingCycles`. To stand up an irregular cycle, run this, then `cycle update` one of the returned cycles with the desired name and dates. `cycle create` only returns this guidance as a validation error (exit 5)
 - `linearctl cycle update <id> [--name <text>] [--starts-at <date>] [--ends-at <date>] --json`
 - `linearctl cycle archive <id> --json`
 - `linearctl cycle delete <id> --json` — Linear does not hard-delete cycles; this archives the cycle and reports `requestedAction: "delete"` / `performedAction: "archive"` in JSON and dry-run output

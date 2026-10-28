@@ -459,7 +459,7 @@ describe("--dry-run", () => {
     });
   });
 
-  describe("cycle create --dry-run", () => {
+  describe("cycle ensure-upcoming --dry-run", () => {
     it("returns dry-run output", async () => {
       const dir = await mkdtemp(join(tmpdir(), "dry-run-"));
       const paths = await writeProfileFiles(dir);
@@ -467,11 +467,11 @@ describe("--dry-run", () => {
       const output = captureOutput();
 
       try {
-        const exitCode = await handleCycleCommand(["create"], {
+        const exitCode = await handleCycleCommand(["ensure-upcoming"], {
           ...baseOptions(paths),
           dryRun: true,
           team: "a0000000-0000-0000-0000-000000000001",
-          name: "Sprint 1",
+          count: "4",
           fetchImpl
         });
 
@@ -480,9 +480,9 @@ describe("--dry-run", () => {
 
         const parsed = JSON.parse(output.stdout.join(""));
         expect(parsed.dryRun).toBe(true);
-        expect(parsed.action).toBe("create");
+        expect(parsed.action).toBe("ensure-upcoming");
         expect(parsed.resource).toBe("cycle");
-        expect(parsed.input.teamId).toBe("a0000000-0000-0000-0000-000000000001");
+        expect(parsed.input).toEqual({ teamId: "a0000000-0000-0000-0000-000000000001", upcomingCycleCount: 4 });
       } finally {
         output.restore();
       }
