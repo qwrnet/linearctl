@@ -49,7 +49,7 @@ else
 fi
 
 case "$url" in
-  "https://github.com/qwrobins/linearctl/releases/download/v9.9.9/linearctl-${TEST_OS}-x64")
+  "https://github.com/qwrnet/linearctl/releases/download/v9.9.9/linearctl-${TEST_OS}-x64")
     # The binary must be staged beside (not at) the installed executable.
     [ "$(dirname "$output")" = "$LINEAR_INSTALL_DIR" ] || exit 93
     [ "$output" != "$LINEAR_INSTALL_DIR/linearctl" ] || exit 94
@@ -60,7 +60,7 @@ case "$url" in
     esac
     cp "$TEST_ROOT/fixtures/replacement" "$output"
     ;;
-  https://github.com/qwrobins/linearctl/releases/download/v9.9.9/checksums.txt)
+  https://github.com/qwrnet/linearctl/releases/download/v9.9.9/checksums.txt)
     printf '%s  unrelated-artifact\n' "$CHECKSUM" > "$output"
     case "$SCENARIO" in
       checksums-failure) exit 22 ;;

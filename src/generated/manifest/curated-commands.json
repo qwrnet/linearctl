@@ -1226,5 +1226,22 @@
       "json",
       "json-envelope"
     ]
+  },
+  {
+    "commandPath": "linearctl update check",
+    "usage": "linearctl update check [--json]",
+    "layer": "curated",
+    "resource": "update",
+    "operation": "check",
+    "stability": "stable",
+    "preferredForAgents": true,
+    "safety": "safe",
+    "inputMode": "flags",
+    "outputShape": "object",
+    "supportedOutputModes": [
+      "human",
+      "json",
+      "json-envelope"
+    ]
   }
 ]

@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-REPO="qwrobins/linearctl"
+REPO="qwrnet/linearctl"
 INSTALL_DIR="${LINEAR_INSTALL_DIR:-$HOME/.local/bin}"
 BINARY_NAME="linearctl"
 

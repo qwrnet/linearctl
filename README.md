@@ -9,19 +9,19 @@ Three command layers: curated commands for common workflows, a generated API lay
 ### Linux and macOS
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/qwrobins/linearctl/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh
 ```
 
 Or install a specific version:
 
 ```bash
-LINEAR_VERSION=v0.8.13 curl -fsSL https://raw.githubusercontent.com/qwrobins/linearctl/main/install.sh | sh
+LINEAR_VERSION=v0.8.14 curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh
 ```
 
 On Debian/Ubuntu, the installer automatically uses the `.deb` package. To skip deb and install the raw binary instead:
 
 ```bash
-LINEAR_NO_DEB=1 curl -fsSL https://raw.githubusercontent.com/qwrobins/linearctl/main/install.sh | sh
+LINEAR_NO_DEB=1 curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh
 ```
 
 ### npm / Node.js
@@ -49,7 +49,7 @@ From PowerShell:
 
 ```powershell
 $installer = Join-Path ([IO.Path]::GetTempPath()) "install-linearctl.ps1"
-Invoke-WebRequest https://raw.githubusercontent.com/qwrobins/linearctl/main/install.ps1 -OutFile $installer
+Invoke-WebRequest https://raw.githubusercontent.com/qwrnet/linearctl/main/install.ps1 -OutFile $installer
 & $installer -AddToPath
 Remove-Item $installer
 ```
@@ -70,17 +70,24 @@ Local macOS builds are not Developer ID signed or notarized. If Bun leaves an
 invalid signature (verification fails or execution exits 137), follow the
 [local signature verification and repair steps](docs/macos-signing.md#local-builds-and-signature-repair).
 
+### Updating
+
+Run `linearctl update check` to see whether a newer release exists and the right way to update for
+how linearctl was installed. It never replaces the binary itself: npm and other package managers
+own their installs, and a raw binary is updated by rerunning `install.sh`. See
+[docs/distribution.md](docs/distribution.md).
+
 ## Quick start
 
 Point your agent at the install guide and it will handle everything:
 
-> Install and set up linearctl using https://raw.githubusercontent.com/qwrobins/linearctl/main/INSTALL.md
+> Install and set up linearctl using https://raw.githubusercontent.com/qwrnet/linearctl/main/INSTALL.md
 
 Or do it step by step:
 
 ```bash
 # Install
-curl -fsSL https://raw.githubusercontent.com/qwrobins/linearctl/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh
 
 # Install agent skills
 linearctl skills install
@@ -160,6 +167,7 @@ For command discovery, agents can inspect the stable curated metadata with `line
 | [schema](docs/commands.md#schema) | version, pull, check |
 | [workspace](docs/commands.md#workspace) | list |
 | [skills](docs/commands.md#skills) | install, list |
+| [update](docs/commands.md#update) | check |
 | [api](docs/commands.md#generated-api) | Generated commands for any Linear API resource |
 | [gql](docs/commands.md#raw-graphql) | Raw GraphQL queries and mutations |
 
@@ -196,6 +204,7 @@ See [docs/output-modes.md](docs/output-modes.md).
 - [Filtering and pagination](docs/filtering-and-pagination.md)
 - [Agent usage](docs/agent-usage.md)
 - [Schema and generated API](docs/schema-and-generated.md)
+- [Distribution and updates](docs/distribution.md)
 
 ## License
 

@@ -1,16 +1,16 @@
 {
   "name": "@qwrobinson/linearctl",
-  "version": "0.8.13",
+  "version": "0.8.14",
   "description": "Agent-first CLI for the Linear API",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/qwrobins/linearctl.git"
+    "url": "git+https://github.com/qwrnet/linearctl.git"
   },
   "bugs": {
-    "url": "https://github.com/qwrobins/linearctl/issues"
+    "url": "https://github.com/qwrnet/linearctl/issues"
   },
-  "homepage": "https://github.com/qwrobins/linearctl#readme",
+  "homepage": "https://github.com/qwrnet/linearctl#readme",
   "type": "module",
   "bin": {
     "linearctl": "dist/cli/main.js"
