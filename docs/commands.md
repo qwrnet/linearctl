@@ -8,18 +8,18 @@ Global flags: `--profile <name>`, `--no-retry`, `--max-retries <n>`.
 
 ```bash
 # Get a single issue by identifier or UUID
-linearctl issue get <identifier> --json
-linearctl issue view <identifier> --json
+linearctl issue get <identifier> [--with relations,children,comments] --json
+linearctl issue view <identifier> [--with relations,children,comments] --json
 
 # List issues with filters
 linearctl issue list [--search <text>|--query <text>] [--team <name|key|id>] [--state <name|id>[,<name|id>...] ...] [--status <name|id>] [--assignee <name|displayName|email|"me"|id|none>] \
   [--label <name|id>] [--priority <0-4>] [--due-date <YYYY-MM-DD|none>] [--cycle <id>] [--project <name|id>] \
   [--created-after <date>] [--updated-after <date>] [--completed-after <date>] \
-  [--all-teams] [--filter-json <json>] [--order-by <field>] \
+  [--all-teams] [--filter-json <json>] [--order-by <field>] [--with relations,children] \
   [--all] [--max <n>|--limit <n>] [--page-size <n>] [--after <cursor>] --json
 
 # Search issues by text. Profile default teams are not applied; pass --team to scope explicitly.
-linearctl issue search [<text>|--query <text>] [--team <name|key|id>] [--all] --json
+linearctl issue search [<text>|--query <text>] [--team <name|key|id>] [--with relations,children] [--all] --json
 
 # Create an issue
 linearctl issue create --title <title> --team <name|key|id> \
@@ -53,6 +53,24 @@ linearctl issue comment <identifier> (--body <text>|--body-file <path|->) --json
 `issue get`, `issue view`, and `issue list` JSON include `dueDate`. The list command accepts repeated or comma-separated `--state` values, `--assignee none`/`unassigned` for issues with no assignee, and `--due-date none` for issues with no due date. `issue get` / `issue view` returns soft-deleted Linear issues when the API can still read them; JSON also includes `projectMilestone`, `trashed`, and `archivedAt`, while human output marks trashed and archived issues. A missing referenced issue returns exit 4 with `category: "not-found"` in `--json-envelope`.
 
 On `issue update`, pass `none` to clear an assignee, cycle, project, project milestone, parent, or due date. On both `issue update` and `issue bulk-update`, `--label` adds one label without removing existing labels. Single-issue callers that deliberately need replacement semantics can still pass `labelIds` through the low-level `--input-json` escape hatch; bulk replacement has no curated flag.
+
+### Relations, children and comments (`--with`)
+
+`issue get`, `issue list` and `issue search` take `--with <value>[,<value>...]` to add nested data to each issue. Without `--with`, the payload and the GraphQL query are unchanged. The values are fetched in the same query as the issues, so a list stays one request per page however many issues it returns.
+
+| Value | Commands | Adds |
+| --- | --- | --- |
+| `relations` | get, list, search | `relations: { blocks, blockedBy, truncated }` |
+| `children` | get, list, search | `subIssueSortOrder`, `children: { nodes, truncated }`, `siblings: { nodes, truncated } \| null` |
+| `comments` | get | `comments: { nodes, truncated }` |
+
+- `relations.blocks` lists the issues this issue blocks and `relations.blockedBy` the issues that block it. Each entry is `{ relationId, issue: { id, identifier, title, state: { id, name, type } } }`. Only `blocks` relations are included; use `relation list` for `related`, `duplicate` and `similar`.
+- `children.nodes` are the issue's sub-issues and `siblings.nodes` the other sub-issues of its parent (`null` when the issue has no parent). Each entry is `{ id, identifier, title, sortOrder, subIssueSortOrder, state: { id, name, type } }`, sorted by `subIssueSortOrder` ascending (the order Linear shows under the parent; entries without one come last). Compare a sibling's `subIssueSortOrder` with the issue's own top-level `subIssueSortOrder` to find earlier siblings.
+- `comments.nodes` are the 20 most recent comments, newest first: `{ id, body, createdAt, user: { id, name, email } | null }`.
+- `state.type` is Linear's workflow state type: `triage`, `backlog`, `unstarted`, `started`, `completed` or `canceled`. Treat `completed` and `canceled` as closed.
+- Nested lists are capped at 50 relations in each direction (counting every relation type), 100 children, 100 siblings and 20 comments. `truncated: true` means Linear had more; fetch the rest with `relation list`, `issue list --filter-json` or `comment list`.
+- Nested data makes each page more expensive. With `--with`, `--all` and `--max` default to pages of 100 instead of 250. If Linear rejects a query as too complex, pass a smaller `--page-size`.
+- Human output of `issue get` adds `Blocked by`, `Blocks`, `Children` and `Comments` lines.
 
 ### Bulk operations
 
@@ -90,7 +108,7 @@ linearctl relation delete <relation-id> --json       # [destructive]
 
 `relation list` resolves a human-readable issue identifier or UUID and returns both outbound and inbound relations. Each result preserves the API's `issue` and `relatedIssue` endpoints and adds `direction` relative to the issue being listed.
 
-For `duplicate`, `--issue` is the duplicate and `--related` is the canonical issue. For `blocks`, `--issue` blocks `--related`. `related-to` and `relatedTo` are accepted as aliases for the API's `related` type. Creation resolves both issue identifiers before mutation and supports `--dry-run`.
+For `duplicate`, `--issue` is the duplicate and `--related` is the canonical issue. For `blocks`, `--issue` blocks `--related`: Linear stores one relation `{ type: "blocks", issue: <blocker>, relatedIssue: <blocked> }`, so to record "A is blocked by B" run `relation create --issue B --related A --type blocks`. `relation list A` then shows it with `direction: "inbound"`, and `issue get A --with relations` shows B under `relations.blockedBy`. `related-to` and `relatedTo` are accepted as aliases for the API's `related` type. Creation resolves both issue identifiers before mutation and supports `--dry-run`.
 
 ## Project
 

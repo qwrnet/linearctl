@@ -121,6 +121,7 @@ export interface ParsedCliArguments {
   scope?: string;
   parent?: string;
   related?: string;
+  with?: string;
   type?: string;
   group: boolean;
   noRetry: boolean;

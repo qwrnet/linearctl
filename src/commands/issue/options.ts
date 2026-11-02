@@ -33,6 +33,8 @@ export interface IssueCommandOptions extends CommandOptions {
   sync?: boolean;
   // parent issue flag
   parent?: string;
+  // issue get/list/search: extra nested data (relations, children, comments)
+  with?: string;
   // issue list flags
   cycle?: string;
   project?: string;

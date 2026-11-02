@@ -319,6 +319,7 @@ function toParsedCliArguments(values: Record<string, unknown>, positionals: stri
     ...(typeof values.scope === "string" ? { scope: values.scope } : {}),
     ...(typeof values.parent === "string" ? { parent: values.parent } : {}),
     ...(typeof values.related === "string" ? { related: values.related } : {}),
+    ...(typeof values.with === "string" ? { with: values.with } : {}),
     ...(typeof values.type === "string" ? { type: values.type } : {}),
     group: values.group === true,
     noRetry: values["no-retry"] === true,

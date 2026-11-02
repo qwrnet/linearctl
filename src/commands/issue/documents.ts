@@ -1,3 +1,5 @@
+import { type IssueInclude, issueIncludeSelection } from "./includes.js";
+
 
 export const CURATED_ISSUE_FRAGMENT = `
 fragment CuratedIssue on Issue {
@@ -49,13 +51,23 @@ fragment CuratedIssueSearchResult on IssueSearchResult {
   updatedAt
 }`;
 
-export const ISSUE_GET_QUERY = `
+/** Adds the `--with` include fields to a curated fragment; with no includes it is unchanged. */
+function fragmentWithIncludes(fragment: string, includes: ReadonlySet<IssueInclude>): string {
+  const extra = issueIncludeSelection(includes);
+  return extra === "" ? fragment : fragment.replace(/\n}$/, `\n  ${extra}\n}`);
+}
+
+export function issueGetQuery(includes: ReadonlySet<IssueInclude> = new Set()): string {
+  return `
 query IssueGet($id: String!) {
   issue(id: $id) {
     ...CuratedIssue
   }
 }
-${CURATED_ISSUE_FRAGMENT}`;
+${fragmentWithIncludes(CURATED_ISSUE_FRAGMENT, includes)}`;
+}
+
+export const ISSUE_GET_QUERY = issueGetQuery();
 
 export const ISSUE_CREATE_MUTATION = `
 mutation IssueCreate($input: IssueCreateInput!) {
@@ -68,7 +80,8 @@ mutation IssueCreate($input: IssueCreateInput!) {
 }
 ${CURATED_ISSUE_FRAGMENT}`;
 
-export const ISSUE_LIST_QUERY = `
+export function issueListQuery(includes: ReadonlySet<IssueInclude> = new Set()): string {
+  return `
 query IssueList($first: Int!, $after: String, $filter: IssueFilter, $orderBy: PaginationOrderBy) {
   issues(first: $first, after: $after, filter: $filter, orderBy: $orderBy) {
     nodes {
@@ -80,9 +93,13 @@ query IssueList($first: Int!, $after: String, $filter: IssueFilter, $orderBy: Pa
     }
   }
 }
-${CURATED_ISSUE_FRAGMENT}`;
+${fragmentWithIncludes(CURATED_ISSUE_FRAGMENT, includes)}`;
+}
 
-export const ISSUE_SEARCH_QUERY = `
+export const ISSUE_LIST_QUERY = issueListQuery();
+
+export function issueSearchQuery(includes: ReadonlySet<IssueInclude> = new Set()): string {
+  return `
 query IssueSearch($first: Int!, $after: String, $term: String!, $filter: IssueFilter) {
   searchIssues(first: $first, after: $after, term: $term, filter: $filter) {
     nodes {
@@ -94,7 +111,10 @@ query IssueSearch($first: Int!, $after: String, $term: String!, $filter: IssueFi
     }
   }
 }
-${CURATED_ISSUE_SEARCH_RESULT_FRAGMENT}`;
+${fragmentWithIncludes(CURATED_ISSUE_SEARCH_RESULT_FRAGMENT, includes)}`;
+}
+
+export const ISSUE_SEARCH_QUERY = issueSearchQuery();
 
 export const ISSUE_UPDATE_MUTATION = `
 mutation IssueUpdate($id: String!, $input: IssueUpdateInput!) {
