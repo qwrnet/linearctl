@@ -1,4 +1,5 @@
 import { commandIO, type CommandIO } from "../../core/runtime/options.js";
+import { type NormalizedIssueIncludes, type RawIssueIncludes, normalizeIssueIncludes } from "./includes.js";
 
 export interface RawSlackAttachment {
   id: string;
@@ -9,7 +10,7 @@ export interface RawSlackAttachment {
   createdAt: string;
 }
 
-export interface RawIssue {
+export interface RawIssue extends RawIssueIncludes {
   id: string;
   identifier: string;
   title: string;
@@ -33,7 +34,7 @@ export interface RawIssue {
   updatedAt: string;
 }
 
-export interface NormalizedIssue {
+export interface NormalizedIssue extends NormalizedIssueIncludes {
   id: string;
   identifier: string;
   title: string;
@@ -79,7 +80,8 @@ export function normalizeIssue(raw: RawIssue): NormalizedIssue {
     trashed: raw.trashed,
     archivedAt: raw.archivedAt,
     createdAt: raw.createdAt,
-    updatedAt: raw.updatedAt
+    updatedAt: raw.updatedAt,
+    ...normalizeIssueIncludes(raw, raw.id)
   };
 }
 
@@ -113,6 +115,22 @@ export function printHumanIssue(issue: NormalizedIssue, options: CommandIO): voi
   }
   if (issue.labels.length > 0) {
     stdout.write(`  Labels:   ${issue.labels.map((l) => l.name).join(", ")}\n`);
+  }
+  const linked = (nodes: Array<{ identifier: string; state: { type: string } | null }>): string =>
+    nodes.map((node) => `${node.identifier} (${node.state?.type ?? "unknown"})`).join(", ");
+  if (issue.relations !== undefined) {
+    if (issue.relations.blockedBy.length > 0) {
+      stdout.write(`  Blocked by: ${linked(issue.relations.blockedBy.map((link) => link.issue))}\n`);
+    }
+    if (issue.relations.blocks.length > 0) {
+      stdout.write(`  Blocks:   ${linked(issue.relations.blocks.map((link) => link.issue))}\n`);
+    }
+  }
+  if (issue.children !== undefined && issue.children.nodes.length > 0) {
+    stdout.write(`  Children: ${linked(issue.children.nodes)}\n`);
+  }
+  if (issue.comments !== undefined) {
+    stdout.write(`  Comments: ${issue.comments.nodes.length}${issue.comments.truncated ? "+" : ""}\n`);
   }
   stdout.write(`  URL:      ${issue.url}\n`);
 }

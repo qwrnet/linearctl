@@ -9,18 +9,23 @@ import { normalizeRetryOptions } from "../../core/transport/retry.js";
 import { createCommandContext } from "../../core/runtime/command-context.js";
 import { type IssueCommandOptions } from "./options.js";
 import { type RawIssue, normalizeIssue, printHumanIssue } from "./model.js";
-import { ISSUE_GET_QUERY, ISSUE_LIST_QUERY, ISSUE_SEARCH_QUERY } from "./documents.js";
+import { issueGetQuery, issueListQuery, issueSearchQuery } from "./documents.js";
+import { ISSUE_INCLUDES, LIST_ISSUE_INCLUDES, WITH_PAGE_SIZE, parseIssueIncludes } from "./includes.js";
 import { buildIssueFilter } from "./input.js";
 export async function handleIssueGet(
   identifier: string,
   options: IssueCommandOptions
 ): Promise<number> {
   const { stdout } = commandIO(options);
+  const parsedIncludes = parseIssueIncludes(options.with, ISSUE_INCLUDES, "issue get");
+  if ("error" in parsedIncludes) {
+    return emitValidationError(parsedIncludes.error, options);
+  }
   const ctx = createCommandContext(options);
 
   try {
     const response = await ctx.graphql<{ issue: RawIssue | null }>(
-      ISSUE_GET_QUERY,
+      issueGetQuery(parsedIncludes.includes),
       { id: identifier }
     );
 
@@ -48,13 +53,30 @@ export async function handleIssueGet(
   }
 }
 
+/**
+ * Nested `--with` connections multiply the cost of each page, so auto-pagination uses
+ * smaller pages than the usual 250 unless `--page-size` says otherwise.
+ */
+function withPageSize(includeCount: number, options: IssueCommandOptions): number | undefined {
+  if (includeCount === 0 || (options.all !== true && options.max === undefined)) {
+    return undefined;
+  }
+  return WITH_PAGE_SIZE;
+}
+
 export async function handleIssueList(options: IssueCommandOptions): Promise<number> {
   const { stdout } = commandIO(options);
+  const parsedIncludes = parseIssueIncludes(options.with, LIST_ISSUE_INCLUDES, "issue list");
+  if ("error" in parsedIncludes) {
+    return emitValidationError(parsedIncludes.error, options);
+  }
+  const includes = parsedIncludes.includes;
+
   const paginationOptions: PaginationOptions = {
     stderr: commandIO(options).stderr,
     all: options.all,
     max: options.max,
-    pageSize: options.pageSize,
+    pageSize: options.pageSize ?? withPageSize(includes.size, options),
     after: options.after,
     quiet: options.quiet
   };
@@ -80,7 +102,7 @@ export async function handleIssueList(options: IssueCommandOptions): Promise<num
     const filter = filterResult.filter;
 
     const commonPaginateInput = {
-      query: ISSUE_LIST_QUERY,
+      query: issueListQuery(includes),
       variables: {
         ...(filter === undefined ? {} : { filter }),
         ...(options.orderBy === undefined ? {} : { orderBy: options.orderBy })
@@ -150,11 +172,17 @@ export async function handleIssueSearch(options: IssueCommandOptions, applyDefau
     return emitValidationError("usage: linearctl issue search [<text>|--query <text>]", options);
   }
 
+  const parsedIncludes = parseIssueIncludes(options.with, LIST_ISSUE_INCLUDES, "issue search");
+  if ("error" in parsedIncludes) {
+    return emitValidationError(parsedIncludes.error, options);
+  }
+  const includes = parsedIncludes.includes;
+
   const paginationOptions: PaginationOptions = {
     stderr: commandIO(options).stderr,
     all: options.all,
     max: options.max,
-    pageSize: options.pageSize,
+    pageSize: options.pageSize ?? withPageSize(includes.size, options),
     after: options.after,
     quiet: options.quiet
   };
@@ -179,7 +207,7 @@ export async function handleIssueSearch(options: IssueCommandOptions, applyDefau
     }
 
     const commonPaginateInput = {
-      query: ISSUE_SEARCH_QUERY,
+      query: issueSearchQuery(includes),
       variables: {
         term: trimmedQuery,
         ...(filterResult.filter === undefined ? {} : { filter: filterResult.filter })

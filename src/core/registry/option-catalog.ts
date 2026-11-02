@@ -107,6 +107,7 @@ export const OPTION_CATALOG: Record<string, OptionSpec> = {
   scope: { type: "string" },
   parent: { type: "string" },
   related: { type: "string" },
+  with: { type: "string" },
   type: { type: "string" },
   group: { type: "boolean" },
 };

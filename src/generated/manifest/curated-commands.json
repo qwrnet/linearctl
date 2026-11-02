@@ -1,7 +1,7 @@
 [
   {
     "commandPath": "linearctl issue get",
-    "usage": "linearctl issue get <identifier> [--json]",
+    "usage": "linearctl issue get <identifier> [--with relations,children,comments] [--json]",
     "layer": "curated",
     "resource": "issue",
     "operation": "get",
@@ -18,7 +18,7 @@
   },
   {
     "commandPath": "linearctl issue view",
-    "usage": "linearctl issue view <identifier> [--json] (alias: get)",
+    "usage": "linearctl issue view <identifier> [--with relations,children,comments] [--json] (alias: get)",
     "layer": "curated",
     "resource": "issue",
     "operation": "view",
@@ -52,7 +52,7 @@
   },
   {
     "commandPath": "linearctl issue list",
-    "usage": "linearctl issue list [--search <text>|--query <text>] [--state <name>[,<name>...] ...] [--status <name>] [--assignee <id|none>] [--team <id>] [--label <name|id>] [--priority <0-4>] [--due-date <YYYY-MM-DD|none>] [--cycle <id>] [--project <id|name>] [--created-after <date>] [--updated-after <date>] [--completed-after <date>] [--order-by <field>] [--all-teams] [--all] [--json]",
+    "usage": "linearctl issue list [--search <text>|--query <text>] [--state <name>[,<name>...] ...] [--status <name>] [--assignee <id|none>] [--team <id>] [--label <name|id>] [--priority <0-4>] [--due-date <YYYY-MM-DD|none>] [--cycle <id>] [--project <id|name>] [--created-after <date>] [--updated-after <date>] [--completed-after <date>] [--order-by <field>] [--with relations,children] [--all-teams] [--all] [--json]",
     "layer": "curated",
     "resource": "issue",
     "operation": "list",
@@ -73,7 +73,7 @@
   },
   {
     "commandPath": "linearctl issue search",
-    "usage": "linearctl issue search [<text>|--query <text>|--search <text>] [--team <id>] [--all] [--json]",
+    "usage": "linearctl issue search [<text>|--query <text>|--search <text>] [--team <id>] [--with relations,children] [--all] [--json]",
     "layer": "curated",
     "resource": "issue",
     "operation": "search",

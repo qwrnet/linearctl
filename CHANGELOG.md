@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `issue get`, `issue list` and `issue search` take `--with relations,children` (and `comments` for `issue get`) to return blocking relations in both directions (`relations.blocks`, `relations.blockedBy`), sub-issues and siblings in sub-issue order (`children`, `siblings`, `subIssueSortOrder`) and the 20 most recent comments, in the same query as the issues: one request per page. Each nested list reports `truncated`. With `--with`, `--all`/`--max` use pages of 100 (QWR-503).
+
+### Documentation
+
+- `relation create --type blocks` direction: `--issue` blocks `--related`, so "A is blocked by B" is `--issue B --related A`.
+
 ### Fixed
 
 - Retry the macOS release's online notarization ticket check for about five minutes instead of failing the release when Apple has accepted a binary but not yet published its ticket. Signature failures still fail immediately.
