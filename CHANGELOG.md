@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-02
+
 ### Added
 
 - `issue get`, `issue list` and `issue search` take `--with relations,children` (and `comments` for `issue get`) to return blocking relations in both directions (`relations.blocks`, `relations.blockedBy`), sub-issues and siblings in sub-issue order (`children`, `siblings`, `subIssueSortOrder`) and the 20 most recent comments, in the same query as the issues: one request per page. Each nested list reports `truncated`. With `--with`, `--all`/`--max` use pages of 100 (QWR-503).
