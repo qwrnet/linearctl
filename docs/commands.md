@@ -69,7 +69,7 @@ On `issue update`, pass `none` to clear an assignee, cycle, project, project mil
 - `comments.nodes` are the 20 most recent comments, newest first: `{ id, body, createdAt, user: { id, name, email } | null }`.
 - `state.type` is Linear's workflow state type: `triage`, `backlog`, `unstarted`, `started`, `completed` or `canceled`. Treat `completed` and `canceled` as closed.
 - Nested lists are capped at 50 relations in each direction (counting every relation type), 100 children, 100 siblings and 20 comments. `truncated: true` means Linear had more; fetch the rest with `relation list`, `issue list --filter-json` or `comment list`.
-- Nested data makes each page more expensive. With `--with`, `--all` and `--max` default to pages of 100 instead of 250. If Linear rejects a query as too complex, pass a smaller `--page-size`.
+- Nested data makes each page more expensive. Linear rejects a query above 10,000 complexity points ("Query too complex"). For issue connections it charges by the data returned: measured in October/November 2026, 168 issues with `--with relations,children` cost 519 points whether pages were 50, 100 or 250 (18 points without `--with`). To keep headroom, `--all` and `--max` default to pages of 100 instead of 250 when `--with` is used. If Linear still rejects a query, pass a smaller `--page-size`.
 - Human output of `issue get` adds `Blocked by`, `Blocks`, `Children` and `Comments` lines.
 
 ### Bulk operations
