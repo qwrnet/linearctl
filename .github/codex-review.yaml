@@ -1,0 +1,14 @@
+enabled: true
+block_on: [P0, P1]
+min_confidence: 4
+owner_only: warn
+effort: medium
+jev: true
+instructions: |
+  This repository builds linearctl, an agent-first CLI for the Linear API, and its bundled agent
+  skills. AI agents are its main consumers. Pay extra attention to: changes that break a `--json`
+  output shape (those are stable contracts) or mix stderr into stdout; credentials or tokens
+  reaching logs, error messages, or plain command-line arguments; the credentials file losing
+  its 0600 permissions; destructive commands that run without --dry-run support or confirmation
+  metadata; command behavior changed without matching updates to docs/ and skills/; and tests
+  that could reach the real Linear API instead of fake GraphQL responses.

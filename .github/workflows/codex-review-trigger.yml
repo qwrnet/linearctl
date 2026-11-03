@@ -1,0 +1,26 @@
+name: Codex review trigger
+
+# Copy to .github/workflows/codex-review-trigger.yml. Asks the central gate in qwrnet/actions to
+# review ready pull requests into the default branch (it posts the required `codex-review` check,
+# a summary comment and inline findings), and to wake the runner VM for CI that runs without a
+# review: draft pull requests and pushes to the default branch. The shared action decides which.
+#
+# This only names the pull request. It never checks out or runs the pull request's code, and a
+# fork's pull request gets no secret, so it is not dispatched (the owner reviews those).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, edited]
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  dispatch:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: qwrnet/actions/codex-review-trigger@main
+        with:
+          token: ${{ secrets.CODEX_REVIEW_DISPATCH_TOKEN }}
