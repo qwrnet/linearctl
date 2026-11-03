@@ -16,6 +16,10 @@ import { runTwoStepWorkflow, WorkflowStepError } from "../core/runtime/workflow.
 // each project includes nested milestones and teams in the stable JSON output.
 const PROJECT_LIST_PAGE_SIZE = 50;
 
+// Cap on a project's external links (the "Resources" section in Linear) per
+// request, matching the milestones cap. `linksTruncated` reports when capped.
+const PROJECT_LINKS_LIMIT = 10;
+
 export interface ProjectCommandOptions extends CommandOptions {
   jsonl?: boolean;
   dryRun?: boolean;
@@ -171,6 +175,16 @@ fragment CuratedProject on Project {
       status
     }
   }
+  externalLinks(first: ${PROJECT_LINKS_LIMIT}) {
+    pageInfo {
+      hasNextPage
+    }
+    nodes {
+      label
+      url
+      sortOrder
+    }
+  }
   startDate
   targetDate
   lead { id name email }
@@ -293,6 +307,16 @@ interface RawProject {
       status: string | null;
     }> | null;
   } | null;
+  externalLinks?: {
+    pageInfo?: {
+      hasNextPage: boolean;
+    } | null;
+    nodes?: Array<{
+      label: string;
+      url: string;
+      sortOrder?: number | null;
+    }> | null;
+  } | null;
   startDate: string | null;
   targetDate: string | null;
   lead: { id: string; name: string; email: string } | null;
@@ -327,6 +351,32 @@ interface RawProjectDetail extends RawProject {
   } | null;
 }
 
+export interface ProjectLink {
+  label: string;
+  url: string;
+}
+
+// Returns links in Linear's display order (ascending sortOrder, the order of
+// the project's Resources section). The sort is stable, so links without a
+// sortOrder keep the order the API returned them in.
+function normalizeProjectLinks(raw: RawProject["externalLinks"]): { links: ProjectLink[]; linksTruncated: boolean } {
+  const nodes = raw?.nodes ?? [];
+  const ordered = nodes
+    .map((node, index) => ({ node, index }))
+    .sort((a, b) => {
+      const left = a.node.sortOrder ?? null;
+      const right = b.node.sortOrder ?? null;
+      if (left !== null && right !== null && left !== right) {
+        return left - right;
+      }
+      return a.index - b.index;
+    });
+  return {
+    links: ordered.map(({ node }) => ({ label: node.label, url: node.url })),
+    linksTruncated: raw?.pageInfo?.hasNextPage === true
+  };
+}
+
 export interface NormalizedProject {
   id: string;
   name: string;
@@ -348,6 +398,8 @@ export interface NormalizedProject {
     endCursor: string | null;
   } | null;
   milestonesTruncated: boolean;
+  links: ProjectLink[];
+  linksTruncated: boolean;
   startDate: string | null;
   targetDate: string | null;
   lead: { id: string; name: string; email: string } | null;
@@ -378,6 +430,7 @@ export function normalizeProject(raw: RawProject): NormalizedProject {
   const milestones = raw.projectMilestones?.nodes ?? [];
   const milestonesPageInfo = raw.projectMilestones?.pageInfo ?? null;
   const milestonesTruncated = milestonesPageInfo?.hasNextPage === true;
+  const { links, linksTruncated } = normalizeProjectLinks(raw.externalLinks);
 
   return {
     id: raw.id,
@@ -391,6 +444,8 @@ export function normalizeProject(raw: RawProject): NormalizedProject {
     milestones,
     milestonesPageInfo,
     milestonesTruncated,
+    links,
+    linksTruncated,
     startDate: raw.startDate,
     targetDate: raw.targetDate,
     lead: raw.lead,
@@ -455,6 +510,15 @@ function printHumanProject(project: NormalizedProject, options: CommandIO): void
     }
     if (project.milestonesTruncated) {
       stdout.write("    - ... more milestones available via --json metadata\n");
+    }
+  }
+  if (project.links.length > 0) {
+    stdout.write("  Links:\n");
+    for (const link of project.links) {
+      stdout.write(link.label !== "" ? `    - ${link.label}: ${link.url}\n` : `    - ${link.url}\n`);
+    }
+    if (project.linksTruncated) {
+      stdout.write(`    - ... more links exist (only the first ${PROJECT_LINKS_LIMIT} are returned)\n`);
     }
   }
   stdout.write(`  URL:    ${project.url}\n`);

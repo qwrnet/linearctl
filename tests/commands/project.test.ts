@@ -72,6 +72,10 @@ function makeRawProject(overrides?: Partial<Record<string, unknown>>) {
         { id: "milestone-1", name: "Phase 1", targetDate: "2026-05-01", progress: 0.5, status: "next" }
       ]
     },
+    externalLinks: {
+      pageInfo: { hasNextPage: false },
+      nodes: []
+    },
     startDate: "2026-04-01",
     targetDate: "2026-06-01",
     lead: { id: "user-1", name: "Quentin", email: "quentin@example.com" },
@@ -1500,5 +1504,124 @@ describe("handleProjectCommand — project update", () => {
     } finally {
       output.restore();
     }
+  });
+});
+
+describe("project links (Resources)", () => {
+  const githubLink = { label: "GitHub", url: "https://github.com/qwrnet/linearctl", sortOrder: -44.75 };
+  const docsLink = { label: "Docs", url: "https://example.com/docs", sortOrder: 10 };
+  const designLink = { label: "Design", url: "https://example.com/design", sortOrder: 0 };
+
+  function linksConnection(nodes: unknown[], hasNextPage = false) {
+    return { pageInfo: { hasNextPage }, nodes };
+  }
+
+  async function runGet(rawProject: unknown, json = true) {
+    const directory = await mkdtemp(join(tmpdir(), "linear-cli-project-"));
+    const paths = await writeProfileFiles(directory);
+    const fetchImpl = makeFetch({ data: { project: rawProject } });
+    const output = captureOutput();
+    try {
+      const exitCode = await handleProjectCommand(["get", "00000000-0000-0000-0000-000000000001"], {
+        ...baseOptions(paths),
+        json,
+        fetchImpl
+      });
+      return { exitCode, stdout: output.stdout.join(""), fetchImpl };
+    } finally {
+      output.restore();
+    }
+  }
+
+  async function runList(rawProjects: unknown[]) {
+    const directory = await mkdtemp(join(tmpdir(), "linear-cli-project-"));
+    const paths = await writeProfileFiles(directory);
+    const fetchImpl = makeFetch({ data: { projects: { nodes: rawProjects, pageInfo: { hasNextPage: false } } } });
+    const output = captureOutput();
+    try {
+      const exitCode = await handleProjectCommand(["list"], { ...baseOptions(paths), fetchImpl });
+      return { exitCode, stdout: output.stdout.join(""), fetchImpl };
+    } finally {
+      output.restore();
+    }
+  }
+
+  it("requests externalLinks in project get and project list queries", async () => {
+    const get = await runGet(makeRawProjectDetail());
+    const list = await runList([makeRawProject()]);
+    for (const fetchImpl of [get.fetchImpl, list.fetchImpl]) {
+      const body = JSON.parse(String(vi.mocked(fetchImpl).mock.calls[0]![1]!.body));
+      expect(body.query).toContain("externalLinks(first: 10)");
+    }
+  });
+
+  it("returns an empty links array for a project with no links", async () => {
+    const { exitCode, stdout } = await runGet(makeRawProjectDetail());
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.links).toEqual([]);
+    expect(parsed.linksTruncated).toBe(false);
+  });
+
+  it("returns an empty links array when the connection is missing", () => {
+    const normalized = normalizeProject(makeRawProject({ externalLinks: null }) as Parameters<typeof normalizeProject>[0]);
+    expect(normalized.links).toEqual([]);
+    expect(normalized.linksTruncated).toBe(false);
+  });
+
+  it("returns one link as {label, url} from project get", async () => {
+    const { stdout } = await runGet(makeRawProjectDetail({ externalLinks: linksConnection([githubLink]) }));
+    const parsed = JSON.parse(stdout);
+    expect(parsed.links).toEqual([{ label: "GitHub", url: "https://github.com/qwrnet/linearctl" }]);
+    expect(parsed.linksTruncated).toBe(false);
+  });
+
+  it("returns several links in Linear's sortOrder from project list", async () => {
+    const { exitCode, stdout } = await runList([
+      makeRawProject({ externalLinks: linksConnection([docsLink, githubLink, designLink]) }),
+      makeRawProject({ id: "proj-uuid-2", name: "No links" })
+    ]);
+    expect(exitCode).toBe(0);
+    const parsed = JSON.parse(stdout);
+    expect(parsed[0].links).toEqual([
+      { label: "GitHub", url: "https://github.com/qwrnet/linearctl" },
+      { label: "Design", url: "https://example.com/design" },
+      { label: "Docs", url: "https://example.com/docs" }
+    ]);
+    expect(parsed[0].linksTruncated).toBe(false);
+    expect(parsed[1].links).toEqual([]);
+  });
+
+  it("keeps API order for links that share or lack a sortOrder", () => {
+    const normalized = normalizeProject(makeRawProject({
+      externalLinks: linksConnection([
+        { label: "B", url: "https://b.example" },
+        { label: "A", url: "https://a.example", sortOrder: 1 },
+        { label: "C", url: "https://c.example", sortOrder: 1 }
+      ])
+    }) as Parameters<typeof normalizeProject>[0]);
+    expect(normalized.links.map((link) => link.label)).toEqual(["B", "A", "C"]);
+  });
+
+  it("flags links as truncated when the connection has another page", async () => {
+    const { stdout } = await runGet(makeRawProjectDetail({ externalLinks: linksConnection([githubLink], true) }));
+    const parsed = JSON.parse(stdout);
+    expect(parsed.links).toHaveLength(1);
+    expect(parsed.linksTruncated).toBe(true);
+  });
+
+  it("lists links under Links in human project get output", async () => {
+    const { exitCode, stdout } = await runGet(
+      makeRawProjectDetail({ externalLinks: linksConnection([docsLink, githubLink], true) }),
+      false
+    );
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("  Links:\n    - GitHub: https://github.com/qwrnet/linearctl\n    - Docs: https://example.com/docs\n");
+    expect(stdout).toContain("more links exist");
+  });
+
+  it("omits the Links section in human output when there are none", async () => {
+    const { stdout } = await runGet(makeRawProjectDetail(), false);
+    expect(stdout).not.toContain("Links:");
   });
 });

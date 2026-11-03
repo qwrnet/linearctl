@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-02
+
+### Added
+
+- `project get` and `project list` return the project's external links (the Resources section in Linear) as `links`, a list of `{"label", "url"}` in Linear's order (`[]` when there are none), capped at the first 10 with `linksTruncated` when more exist. Human `project get`/`project list` output lists them under "Links" (QWR-532).
+
 ## [0.9.0] - 2026-11-02
 
 ### Added

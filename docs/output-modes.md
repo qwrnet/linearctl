@@ -28,7 +28,7 @@ The shape of `--json` output is a stable contract. Fields are not removed or ren
 For list commands, `--json` outputs a JSON array.
 For some resources, single-item `get` commands intentionally return a richer object than each item in `list`; for example, `linearctl project get --json` includes detail fields like `progress`, `health`, `currentProgress`, and `milestones` (with description, sortOrder, createdAt, updatedAt).
 
-For example, `linearctl project list --json` includes stable portfolio fields (`progress`, `health`, `currentProgress`), a normalized `milestones` array, and milestone connection metadata (`milestonesPageInfo`, `milestonesTruncated`) to indicate potential milestone truncation.
+For example, `linearctl project list --json` includes stable portfolio fields (`progress`, `health`, `currentProgress`), a normalized `milestones` array, milestone connection metadata (`milestonesPageInfo`, `milestonesTruncated`) to indicate potential milestone truncation, and the project's external links as `links` (`[{label, url}]`, capped at 10) with `linksTruncated` (also returned by `project get`).
 
 ## --json-envelope
 
