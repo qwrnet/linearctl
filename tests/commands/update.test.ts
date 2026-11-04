@@ -41,13 +41,14 @@ describe("update check", () => {
     const pkg = "node_modules/@qwrobinson/linearctl";
     expect(detectInstallation(`/usr/local/lib/${pkg}/dist/cli/main.js`, { platform: "linux" }).npm)
       .toEqual({ scope: "global", prefix: "/usr/local", packageRoot: `/usr/local/lib/${pkg}` });
-    expect(detectInstallation(`/home/q/app/${pkg}/dist/cli/main.js`, { platform: "linux" }).npm)
+    expect(detectInstallation(`/home/q/app/${pkg}/dist/cli/main.js`, { platform: "linux", pathExists: (p) => p === "/home/q/app/package-lock.json" }).npm)
       .toEqual({ scope: "local", prefix: "/home/q/app", packageRoot: `/home/q/app/${pkg}` });
     const windowsGlobal = detectInstallation(`C:\\Users\\q\\AppData\\Roaming\\npm\\${pkg.replace(/\//g, "\\")}\\dist\\cli\\main.js`,
       { platform: "win32", pathExists: (p) => p === "C:\\Users\\q\\AppData\\Roaming\\npm\\linearctl.cmd" });
     expect(windowsGlobal.npm).toEqual({ scope: "global", prefix: "C:\\Users\\q\\AppData\\Roaming\\npm",
       packageRoot: `C:\\Users\\q\\AppData\\Roaming\\npm\\node_modules\\@qwrobinson\\linearctl` });
     expect(detectInstallation(`C:\\code\\app\\${pkg}\\dist\\cli\\main.js`, { platform: "win32", pathExists: none }).npm?.scope).toBe("local");
+    expect(detectInstallation(`/home/q/app/${pkg}/dist/cli/main.js`, { platform: "linux", pathExists: (p) => p === "/home/q/app/yarn.lock" }).method).toBe("yarn");
     expect(detectInstallMethod(`/home/q/.npm/_npx/1a2b/${pkg}/dist/cli/main.js`, none)).toBe("npx");
     expect(detectInstallMethod(`/home/q/.local/share/pnpm/global/5/.pnpm/@qwrobinson+linearctl@0.9.0/${pkg}/dist/cli/main.js`, none)).toBe("pnpm");
     expect(detectInstallMethod(`/home/q/.config/yarn/global/${pkg}/dist/cli/main.js`, none)).toBe("yarn");

@@ -87,6 +87,10 @@ export function manualRecommendation(installation: Installation, platform: NodeJ
       : `Rerun the installer: ${binaryInstallCommand(installation.executable)}`;
   }
   if (method === "npm") return npmInstallCommand(installation, "latest");
+  if (method === "unknown" && installation.npm) {
+    return `linearctl could not tell which package manager owns ${installation.npm.prefix} (it needs exactly one lockfile). ` +
+      `Update ${NPM_PACKAGE} with that project's package manager, for example: ${npmInstallCommand(installation, "latest")}`;
+  }
   return MANUAL_RECOMMENDATIONS[method] ?? MANUAL_RECOMMENDATIONS.unknown!;
 }
 
@@ -135,6 +139,19 @@ function nativePath(path: string, platform: NodeJS.Platform): string {
   return platform === "win32" ? path.replace(/\//g, "\\") : path;
 }
 
+const PROJECT_LOCKFILES: [string, InstallMethod][] = [
+  ["package-lock.json", "npm"], ["npm-shrinkwrap.json", "npm"], ["yarn.lock", "yarn"],
+  ["pnpm-lock.yaml", "pnpm"], ["bun.lock", "bun"], ["bun.lockb", "bun"],
+];
+
+/** The package manager whose lockfile [project] holds; "unknown" when none or several do. */
+function projectPackageManager(project: string, platform: NodeJS.Platform, pathExists: (path: string) => boolean): InstallMethod {
+  const managers = new Set(PROJECT_LOCKFILES
+    .filter(([file]) => pathExists(nativePath(`${project}/${file}`, platform)))
+    .map(([, manager]) => manager));
+  return managers.size === 1 ? [...managers][0]! : "unknown";
+}
+
 /**
  * How linearctl was installed, from where its (symlink-resolved) executable or entry script lives
  * and whether node/bun runs it. Only "binary" and "npm" are ever updated in place.
@@ -170,8 +187,11 @@ export function detectInstallation(executablePath: string, options: DetectionOpt
       scope = "global";
       prefix = dirname(parent);
     }
-    return { method: "npm", executable,
-      npm: { scope, prefix: nativePath(prefix, platform), packageRoot: nativePath(packageRoot, platform) } };
+    const npm = { scope, prefix: nativePath(prefix, platform), packageRoot: nativePath(packageRoot, platform) };
+    if (scope === "global") return { method: "npm", executable, npm };
+    // A project's node_modules may belong to Yarn, pnpm or Bun without any marker in the path: let
+    // its lockfile say. Only a project npm alone locks is updated with npm.
+    return { method: projectPackageManager(prefix, platform, pathExists), executable, npm };
   }
 
   // A checkout run directly: bun src/cli/main.ts, node dist/cli/main.js (or src/index.ts).

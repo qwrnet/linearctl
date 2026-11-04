@@ -255,6 +255,7 @@ function npmInstall(layout: "global" | "local") {
   writeFileSync(join(packageRoot, "package.json"), JSON.stringify({ version: "0.10.0" }));
   const script = join(packageRoot, "dist", "cli", "main.js");
   writeFileSync(script, "");
+  if (layout === "local") writeFileSync(join(root, "package-lock.json"), "{}");
   return { root, packageRoot, script };
 }
 
@@ -350,6 +351,26 @@ describe("linearctl --update: installs it does not own", () => {
     });
   }
 
+  it("leaves a project install alone unless npm alone locks the project", async () => {
+    const project = "/home/q/app";
+    const script = `${project}/node_modules/@qwrobinson/linearctl/dist/cli/main.js`;
+    const cases: [string[], string, RegExp][] = [
+      [["yarn.lock"], "yarn", /yarn up/],
+      [["bun.lock"], "bun", /bun add/],
+      [["pnpm-lock.yaml"], "pnpm", /pnpm update/],
+      [[], "unknown", /could not tell which package manager owns \/home\/q\/app/],
+      [["package-lock.json", "yarn.lock"], "unknown", /exactly one lockfile/],
+    ];
+    for (const [lockfiles, method, next] of cases) {
+      const { run, calls } = fakeRun();
+      const result = await selfUpdate(baseOptions({ executablePath: script, viaInterpreter: true, runCommand: run,
+        fetchImpl: releaseFetch().fetchImpl, pathExists: (p) => lockfiles.some((file) => p === `${project}/${file}`) }));
+      expect(result, lockfiles.join(",")).toMatchObject({ status: "manual", installMethod: method });
+      expect(result.recommendation).toMatch(next);
+      expect(calls).toEqual([]);
+    }
+  });
+
   it("is up to date (exit 0) on a managed install that already runs the latest release", async () => {
     const result = await selfUpdate(baseOptions({ executablePath: "/opt/homebrew/Cellar/linearctl/0.11.0/bin/linearctl",
       currentVersion: "0.11.0", fetchImpl: releaseFetch().fetchImpl }));
@@ -369,6 +390,17 @@ describe("linearctl --update from the CLI", () => {
     const code = await main(["--update", "--json"], rt);
     expect(code).toBe(0);
     expect(JSON.parse(out.text())).toMatchObject({ status: "up-to-date", currentVersion: packageJson.version, targetVersion: packageJson.version });
+  });
+
+  it("rejects --update with a command or stray argument", async () => {
+    // An unregistered word is parsed with the top-level options, so main itself rejects it.
+    const stray = runtime(releaseFetch().fetchImpl);
+    expect(await main(["--update", "typo"], stray.runtime)).toBe(5);
+    expect(stray.err.text()).toContain("--update takes no command or arguments");
+    // A registered command's option set has no --update, so parsing rejects it.
+    const command = runtime(releaseFetch().fetchImpl);
+    expect(await main(["--update", "issue", "list"], command.runtime)).toBe(5);
+    expect(command.err.text()).toContain("--update");
   });
 
   it("rejects --update attached to another command", async () => {

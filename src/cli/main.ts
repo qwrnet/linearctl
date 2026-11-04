@@ -373,7 +373,10 @@ export async function main(argv: string[], runtime: MainRuntime = defaultRuntime
   }
 
   if (args.update) {
-    // Only parsed at the top level: `linearctl --update [--dry-run] [--json|--json-envelope]`.
+    // Standalone only: `linearctl --update [--dry-run] [--json|--json-envelope]`.
+    if (args.positionals.length > 0) {
+      return validationError("--update takes no command or arguments; run 'linearctl --update' on its own");
+    }
     return runSelfUpdate(args, runtime, fail);
   }
 

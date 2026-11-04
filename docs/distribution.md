@@ -33,7 +33,9 @@ lives, and that is the file that gets replaced.
 |---|---|---|
 | the release binary, anywhere not listed below | `binary` | downloads, verifies and replaces it |
 | `<prefix>/lib/node_modules/@qwrobinson/linearctl/` (Unix), `<prefix>\node_modules\...` beside `linearctl.cmd` (Windows) | `npm`, global | `npm install --global --prefix <prefix> @qwrobinson/linearctl@<latest>` |
-| `<project>/node_modules/@qwrobinson/linearctl/` | `npm`, project | `npm install --prefix <project> @qwrobinson/linearctl@<latest>` |
+| `<project>/node_modules/@qwrobinson/linearctl/`, project locked only by `package-lock.json` or `npm-shrinkwrap.json` | `npm`, project | `npm install --prefix <project> @qwrobinson/linearctl@<latest>` |
+| the same, locked by `yarn.lock`, `pnpm-lock.yaml` or `bun.lock(b)` | `yarn`, `pnpm`, `bun` | prints that tool's project update command |
+| the same, with no lockfile or several | `unknown` | prints: update with the project's package manager |
 | `/usr/bin/linearctl` owned by dpkg | `deb` | prints: rerun `install.sh`, which installs the new `.deb` with `sudo dpkg -i` |
 | `/usr/bin/linearctl` owned by pacman | `aur` | prints: your AUR helper, for example `yay -Syu linearctl` |
 | under Homebrew's `Cellar` | `homebrew` | prints: `brew upgrade linearctl` |
@@ -88,5 +90,5 @@ described in [commands](commands.md#update).
 An earlier version of this policy kept self-update out of the CLI, and planned it only as a
 subcommand. `--update` now exists because users expect it and shouldn't have to look up how they
 installed linearctl. It is safe as a flag because it only works on its own: `linearctl --update`
-with any command, such as `linearctl issue list --update`, is a usage error, so nobody can pass it
+with any command or argument, such as `linearctl issue list --update` or `linearctl --update typo`, is a usage error, so nobody can pass it
 to another command by accident. `--dry-run` shows the plan without changing anything.
