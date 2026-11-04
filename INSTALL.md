@@ -88,6 +88,15 @@ linearctl auth whoami
 
 This should show the user's name, email, and workspace.
 
+## Updating later
+
+```bash
+linearctl --update
+```
+
+This updates a GitHub Releases binary or an npm install in place. For the Debian package or another
+package manager it prints the command to run instead.
+
 ## Done
 
 The CLI is ready. Use the linearctl skill for command routing and examples.

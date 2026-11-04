@@ -1,8 +1,8 @@
 /**
- * `linearctl update check`: compare the installed version with the latest GitHub release and say
- * how to update for the way linearctl was installed. It never replaces the binary: package
- * managers own their installs (docs/distribution.md), and a raw binary is updated by rerunning
- * install.sh.
+ * `linearctl update check` compares the installed version with the latest GitHub release and says
+ * how to update. `linearctl update install` (alias `linearctl --update`) performs the update for
+ * the two install methods linearctl owns, a GitHub Releases binary and an npm install, and explains
+ * the next step for everything a different package manager owns (docs/distribution.md).
  */
 import { existsSync, readdirSync, realpathSync } from "node:fs";
 import packageJson from "../../package.json" with { type: "json" };
@@ -10,15 +10,29 @@ import { commandIO, type CommandOutputOptions } from "../core/runtime/options.js
 import { ExitCode } from "../core/errors/exit-codes.js";
 import { failureEnvelope, successEnvelope } from "../core/output/envelope.js";
 import { emitValidationError } from "../core/output/validation-error.js";
+import { handleSelfUpdate, type SelfUpdateOptions } from "./self-update.js";
 
 export const RELEASES_URL = "https://api.github.com/repos/qwrnet/linearctl/releases/latest";
 export const INSTALLER_URL = "https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh";
 export const INSTALL_COMMAND = `curl -fsSL ${INSTALLER_URL} | sh`;
 export const WINDOWS_INSTALL_COMMAND =
   "Rerun install.ps1 as in the README's Windows section (download https://raw.githubusercontent.com/qwrnet/linearctl/main/install.ps1 and run it)";
+export const NPM_PACKAGE = "@qwrobinson/linearctl";
+export const SELF_UPDATE_COMMAND = "linearctl --update";
 const CHECK_TIMEOUT_MS = 5_000;
 
-export type InstallMethod = "npm" | "homebrew" | "aur" | "deb" | "binary" | "source";
+export type InstallMethod =
+  | "npm" | "npx" | "pnpm" | "yarn" | "bun"
+  | "homebrew" | "aur" | "deb" | "nix"
+  | "binary" | "source" | "unknown";
+
+export interface Installation {
+  method: InstallMethod;
+  /** The resolved executable (or, for JS installs, the entry script). */
+  executable: string;
+  /** npm installs: whether `npm install` ran with --global, and the prefix it used. */
+  npm?: { scope: "global" | "local"; prefix: string; packageRoot: string };
+}
 
 export interface UpdateCheckResult {
   currentVersion: string;
@@ -29,23 +43,52 @@ export interface UpdateCheckResult {
   error?: string;
 }
 
-export interface UpdateCommandOptions extends CommandOutputOptions {
+export interface DetectionOptions {
+  pathExists?: (path: string) => boolean;
+  listDir?: (path: string) => string[];
+  platform?: NodeJS.Platform;
+  /** True when node or bun runs a script; false for the standalone release binary. */
+  viaInterpreter?: boolean;
+}
+
+export interface UpdateCommandOptions extends CommandOutputOptions, Omit<SelfUpdateOptions, "stdout" | "stderr"> {
   fetchImpl?: typeof fetch;
   executablePath?: string;
   currentVersion?: string;
   pathExists?: (path: string) => boolean;
   listDir?: (path: string) => string[];
   platform?: NodeJS.Platform;
+  viaInterpreter?: boolean;
 }
 
-const RECOMMENDATIONS: Record<InstallMethod, string> = {
-  npm: "npm install -g @qwrobinson/linearctl@latest",
+const MANUAL_RECOMMENDATIONS: Partial<Record<InstallMethod, string>> = {
+  npx: `npx fetches the package on each run: use npx --yes ${NPM_PACKAGE}@latest, or install it with npm install --global ${NPM_PACKAGE}`,
+  pnpm: `Update with pnpm: pnpm add --global ${NPM_PACKAGE}@latest (or pnpm update ${NPM_PACKAGE} in the project)`,
+  yarn: `Update with Yarn: yarn global add ${NPM_PACKAGE}@latest (or yarn up ${NPM_PACKAGE} in the project)`,
+  bun: `Update with Bun: bun add --global ${NPM_PACKAGE}@latest`,
   homebrew: "brew upgrade linearctl",
   aur: "Update with your AUR helper (for example: yay -Syu linearctl)",
-  deb: `Rerun the installer, which installs the new .deb: ${INSTALL_COMMAND}`,
-  binary: `Rerun the installer: ${INSTALL_COMMAND}`,
+  deb: `The Debian package owns /usr/bin/linearctl, so linearctl does not replace it. Rerun the installer, which installs the new .deb with sudo dpkg -i: ${INSTALL_COMMAND}`,
+  nix: "Nix owns this install: update the flake or channel that provides linearctl",
   source: "git pull && bun install && bun run build",
+  unknown: `linearctl could not tell how it was installed. Reinstall with the installer (${INSTALL_COMMAND}) or npm (npm install --global ${NPM_PACKAGE}@latest)`,
 };
+
+/** Install methods `linearctl --update` performs itself; every other method gets a next step. */
+export function canSelfUpdate(method: InstallMethod): boolean {
+  return method === "binary" || method === "npm";
+}
+
+/** The manual next step for [installation], used when linearctl will not or cannot update itself. */
+export function manualRecommendation(installation: Installation, platform: NodeJS.Platform = process.platform): string {
+  const { method } = installation;
+  if (method === "binary") {
+    return platform === "win32" ? `Rerun the installer: ${WINDOWS_INSTALL_COMMAND}`
+      : `Rerun the installer: ${binaryInstallCommand(installation.executable)}`;
+  }
+  if (method === "npm") return npmInstallCommand(installation, "latest");
+  return MANUAL_RECOMMENDATIONS[method] ?? MANUAL_RECOMMENDATIONS.unknown!;
+}
 
 /**
  * The installer command that replaces the raw binary at [executable]: into its own directory, and
@@ -54,8 +97,97 @@ const RECOMMENDATIONS: Record<InstallMethod, string> = {
 export function binaryInstallCommand(executable: string): string {
   const path = executable.replace(/\\/g, "/");
   const dir = path.slice(0, path.lastIndexOf("/")) || "/";
-  const quoted = `'${dir.replace(/'/g, "'\\''")}'`;
-  return `curl -fsSL ${INSTALLER_URL} | LINEAR_NO_DEB=1 LINEAR_INSTALL_DIR=${quoted} sh`;
+  return `curl -fsSL ${INSTALLER_URL} | LINEAR_NO_DEB=1 LINEAR_INSTALL_DIR=${shellQuote(dir)} sh`;
+}
+
+/** The npm arguments that update [installation] in its own scope and prefix. */
+export function npmInstallArgs(installation: Installation, version: string): string[] {
+  const npm = installation.npm;
+  const spec = `${NPM_PACKAGE}@${version}`;
+  if (!npm) return ["install", "--global", spec];
+  return npm.scope === "global"
+    ? ["install", "--global", "--prefix", npm.prefix, spec]
+    : ["install", "--prefix", npm.prefix, spec];
+}
+
+export function npmInstallCommand(installation: Installation, version: string): string {
+  return ["npm", ...npmInstallArgs(installation, version)].map(displayArg).join(" ");
+}
+
+function displayArg(arg: string): string {
+  return /^[\w@./:=+~\\-]+$/.test(arg) ? arg : shellQuote(arg);
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function dirname(path: string): string {
+  const index = path.lastIndexOf("/");
+  return index <= 0 ? (index === 0 ? "/" : ".") : path.slice(0, index);
+}
+
+function basename(path: string): string {
+  return path.slice(path.lastIndexOf("/") + 1);
+}
+
+function nativePath(path: string, platform: NodeJS.Platform): string {
+  return platform === "win32" ? path.replace(/\//g, "\\") : path;
+}
+
+/**
+ * How linearctl was installed, from where its (symlink-resolved) executable or entry script lives
+ * and whether node/bun runs it. Only "binary" and "npm" are ever updated in place.
+ */
+export function detectInstallation(executablePath: string, options: DetectionOptions = {}): Installation {
+  const pathExists = options.pathExists ?? existsSync;
+  const listDir = options.listDir ?? ((path: string) => readdirSync(path));
+  const platform = options.platform ?? process.platform;
+  const executable = executablePath;
+  const path = executablePath.replace(/\\/g, "/");
+  const lower = path.toLowerCase();
+  const result = (method: InstallMethod): Installation => ({ method, executable });
+
+  if (lower.startsWith("/nix/store/")) return result("nix");
+  if (path.includes("/Cellar/") || path.includes("/homebrew/") || path.includes("/.linuxbrew/")) return result("homebrew");
+
+  const marker = `/node_modules/${NPM_PACKAGE}/`;
+  const markerIndex = path.lastIndexOf(marker);
+  if (markerIndex >= 0) {
+    if (lower.includes("/.pnpm/") || lower.includes("/pnpm/global/") || lower.includes("/pnpm-global/")) return result("pnpm");
+    if (lower.includes("/.bun/install/global/")) return result("bun");
+    if (lower.includes("/yarn/global/") || lower.includes("/yarn/data/global/") || lower.includes("/.yarn/")) return result("yarn");
+    if (lower.includes("/_npx/")) return result("npx");
+    const packageRoot = path.slice(0, markerIndex + marker.length - 1);
+    const parent = dirname(path.slice(0, markerIndex + "/node_modules".length));
+    // npm's global layout: <prefix>/lib/node_modules on Unix, <prefix>\node_modules on Windows,
+    // where the prefix also holds the linearctl.cmd shim. Anything else is a project install.
+    let scope: "global" | "local" = "local";
+    let prefix = parent;
+    if (platform === "win32") {
+      if (pathExists(nativePath(`${parent}/linearctl.cmd`, platform))) scope = "global";
+    } else if (basename(parent) === "lib") {
+      scope = "global";
+      prefix = dirname(parent);
+    }
+    return { method: "npm", executable,
+      npm: { scope, prefix: nativePath(prefix, platform), packageRoot: nativePath(packageRoot, platform) } };
+  }
+
+  // A checkout run directly: bun src/cli/main.ts, node dist/cli/main.js (or src/index.ts).
+  if (/\/(src|dist)\/(.+\/)?[^/]+\.(ts|js)$/.test(path)) return result("source");
+  if (options.viaInterpreter) return result("unknown");
+
+  if (path === "/usr/bin/linearctl") {
+    try {
+      if (pathExists("/var/lib/pacman/local") &&
+          listDir("/var/lib/pacman/local").some((entry) => entry.startsWith("linearctl-"))) return result("aur");
+    } catch {
+      // Unreadable package database: fall through.
+    }
+    if (pathExists("/var/lib/dpkg/info/linearctl.list")) return result("deb");
+  }
+  return result("binary");
 }
 
 /** How linearctl was installed, from where its executable lives; a guess, never a reason to mutate it. */
@@ -64,21 +196,33 @@ export function detectInstallMethod(
   pathExists: (path: string) => boolean = existsSync,
   listDir: (path: string) => string[] = (path) => readdirSync(path),
 ): InstallMethod {
-  const path = executablePath.replace(/\\/g, "/");
-  if (path.includes("/node_modules/@qwrobinson/linearctl/")) return "npm";
-  if (path.includes("/Cellar/") || path.includes("/homebrew/") || path.includes("/.linuxbrew/")) return "homebrew";
-  // A checkout run directly: bun src/cli/main.ts, node dist/cli/main.js (or src/index.ts).
-  if (/\/(src|dist)\/(.+\/)?[^/]+\.(ts|js)$/.test(path) && !path.includes("/node_modules/")) return "source";
-  if (path === "/usr/bin/linearctl") {
+  return detectInstallation(executablePath, { pathExists, listDir }).method;
+}
+
+/**
+ * The running installation: a Bun-compiled release reports a virtual script path (/$bunfs/...), so
+ * its executable is execPath; under node or bun (npm installs, a checkout) the script path is what
+ * was installed. Symlinks (npm's bin links, a ~/.local/bin link to a custom location) are resolved.
+ */
+export function currentInstallation(options: Partial<UpdateCommandOptions> = {}): Installation {
+  const runtime = process.execPath.split(/[\\/]/).pop()?.toLowerCase() ?? "";
+  const script = process.argv[1];
+  const viaInterpreter = options.viaInterpreter ??
+    (/^(node|bun)(\.exe)?$/.test(runtime) && script !== undefined && !script.startsWith("/$bunfs") && !/^[A-Z]:[\\/]~BUN/i.test(script));
+  let executable = options.executablePath ?? (viaInterpreter && script ? script : process.execPath);
+  if (!options.executablePath) {
     try {
-      if (pathExists("/var/lib/pacman/local") &&
-          listDir("/var/lib/pacman/local").some((entry) => entry.startsWith("linearctl-"))) return "aur";
+      executable = realpathSync(executable);
     } catch {
-      // Unreadable package database: fall through.
+      // Keep the unresolved path.
     }
-    if (pathExists("/var/lib/dpkg/info/linearctl.list")) return "deb";
   }
-  return "binary";
+  return detectInstallation(executable, {
+    viaInterpreter: options.executablePath ? options.viaInterpreter ?? false : viaInterpreter,
+    ...(options.pathExists ? { pathExists: options.pathExists } : {}),
+    ...(options.listDir ? { listDir: options.listDir } : {}),
+    ...(options.platform ? { platform: options.platform } : {}),
+  });
 }
 
 /** -1, 0 or 1 comparing dotted numeric versions ("v0.8.13" works); prerelease suffixes are ignored. */
@@ -93,37 +237,42 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+export interface ReleaseAsset {
+  name: string;
+  url: string;
+}
+
+export interface LatestRelease {
+  version: string;
+  tag: string;
+  assets: ReleaseAsset[];
+}
+
+/** The latest published (non-prerelease) GitHub release and its downloadable assets. */
+export async function fetchLatestRelease(fetchImpl: typeof fetch, currentVersion: string): Promise<LatestRelease> {
+  const response = await fetchImpl(RELEASES_URL, {
+    headers: { Accept: "application/vnd.github+json", "User-Agent": `linearctl/${currentVersion}` },
+    signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
+  });
+  if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
+  const body = (await response.json()) as { tag_name?: unknown; assets?: unknown };
+  if (typeof body.tag_name !== "string" || !body.tag_name) throw new Error("no release tag in GitHub's answer");
+  const assets = Array.isArray(body.assets)
+    ? body.assets.flatMap((asset: { name?: unknown; browser_download_url?: unknown }) =>
+      typeof asset?.name === "string" && typeof asset.browser_download_url === "string"
+        ? [{ name: asset.name, url: asset.browser_download_url }] : [])
+    : [];
+  return { version: body.tag_name.replace(/^v/, ""), tag: body.tag_name, assets };
+}
+
 export async function checkForUpdate(options: Partial<UpdateCommandOptions> = {}): Promise<UpdateCheckResult> {
   const currentVersion = options.currentVersion ?? packageJson.version;
-  // A Bun-compiled release reports a virtual script path (/$bunfs/...); its executable is execPath.
-  // Under node or bun (npm installs, a source checkout) the script path is what was installed.
-  const runtime = process.execPath.split(/[\\/]/).pop()?.toLowerCase() ?? "";
-  const viaInterpreter = /^(node|bun)(\.exe)?$/.test(runtime);
-  const script = process.argv[1];
-  let executable = options.executablePath ??
-    (viaInterpreter && script && !script.startsWith("/$bunfs") ? script : process.execPath);
-  if (!options.executablePath) {
-    try {
-      executable = realpathSync(executable);
-    } catch {
-      // Keep the unresolved path.
-    }
-  }
-  const installMethod = detectInstallMethod(executable, options.pathExists, options.listDir);
-  const windows = (options.platform ?? process.platform) === "win32";
-  const recommendation = installMethod !== "binary" ? RECOMMENDATIONS[installMethod]
-    : windows ? `Rerun the installer: ${WINDOWS_INSTALL_COMMAND}`
-    : `Rerun the installer: ${binaryInstallCommand(executable)}`;
-  const fetchImpl = options.fetchImpl ?? fetch;
+  const installation = currentInstallation(options);
+  const installMethod = installation.method;
+  const recommendation = canSelfUpdate(installMethod) ? SELF_UPDATE_COMMAND
+    : manualRecommendation(installation, options.platform);
   try {
-    const response = await fetchImpl(RELEASES_URL, {
-      headers: { Accept: "application/vnd.github+json", "User-Agent": `linearctl/${currentVersion}` },
-      signal: AbortSignal.timeout(CHECK_TIMEOUT_MS),
-    });
-    if (!response.ok) throw new Error(`GitHub answered ${response.status}`);
-    const body = (await response.json()) as { tag_name?: unknown };
-    if (typeof body.tag_name !== "string" || !body.tag_name) throw new Error("no release tag in GitHub's answer");
-    const latestVersion = body.tag_name.replace(/^v/, "");
+    const { version: latestVersion } = await fetchLatestRelease(options.fetchImpl ?? fetch, currentVersion);
     const updateAvailable = compareVersions(latestVersion, currentVersion) > 0;
     return { currentVersion, latestVersion, updateAvailable, installMethod,
       recommendation: updateAvailable ? recommendation : "Up to date" };
@@ -133,12 +282,16 @@ export async function checkForUpdate(options: Partial<UpdateCommandOptions> = {}
   }
 }
 
+const USAGE = "usage: linearctl update check [--json] | linearctl update install [--dry-run] [--json] (alias: linearctl --update)";
+
 export async function handleUpdateCommand(positionals: string[], options: UpdateCommandOptions): Promise<number> {
-  const { stdout } = commandIO(options);
   const [subcommand] = positionals;
-  if (subcommand !== "check" || positionals.length > 1) {
-    return emitValidationError("usage: linearctl update check [--json]", options);
+  if (positionals.length !== 1 || (subcommand !== "check" && subcommand !== "install")) {
+    return emitValidationError(USAGE, options);
   }
+  if (subcommand === "install") return handleSelfUpdate(options);
+
+  const { stdout } = commandIO(options);
   const result = await checkForUpdate(options);
   if (options.jsonEnvelope) {
     const meta = { sourceLayer: "curated" as const };

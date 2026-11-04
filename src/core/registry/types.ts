@@ -31,6 +31,8 @@ export type CommandHandler = (positionals: string[], options: any) => Promise<nu
 export interface ParsedCliArguments {
   help: boolean;
   version: boolean;
+  /** `linearctl --update`: update the installed CLI (top level only). */
+  update: boolean;
   json: boolean;
   jsonEnvelope: boolean;
   jsonl: boolean;

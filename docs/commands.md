@@ -357,9 +357,24 @@ Installation auto-discovers Claude Code and Codex targets. Listing always checks
 ```bash
 # Compare the installed version with the latest release and print how to update
 linearctl update check [--json]
+
+# Update this installation in place (linearctl update install is the same command)
+linearctl --update [--dry-run] [--json]
+linearctl update install [--dry-run] [--json]
 ```
 
-It never replaces the binary. JSON has `currentVersion`, `latestVersion`, `updateAvailable`, `installMethod` (`npm`, `homebrew`, `aur`, `deb`, `binary` or `source`) and `recommendation`; when GitHub can't be reached, `latestVersion` is `null`, `error` says why, and the exit code is 1. See [Distribution and updates](distribution.md).
+`update check` changes nothing. Its JSON has `currentVersion`, `latestVersion`, `updateAvailable`, `installMethod` and `recommendation` (`linearctl --update` for GitHub Releases binaries and npm installs, the owning tool's command otherwise); when GitHub can't be reached, `latestVersion` is `null`, `error` says why, and the exit code is 1.
+
+`installMethod` is one of `binary` (a GitHub Releases binary), `npm`, `npx`, `pnpm`, `yarn`, `bun`, `homebrew`, `aur`, `deb`, `nix`, `source` (a checkout) or `unknown`. It comes from the executable's real path (symlinks resolved), so a binary moved to a custom directory or linked from one is still found.
+
+`--update` acts only on the two methods linearctl owns:
+
+- **`binary`**: downloads the latest release's asset for this OS and architecture (`linearctl-<linux|darwin>-<x64|arm64>`, or `linearctl-windows-x64.zip`), verifies it against the release's `checksums.txt`, runs the new binary's `--version`, then atomically replaces the executable, keeping its file mode. A failed download, a checksum mismatch, a binary that does not run, or a directory it cannot write leaves the installed binary untouched; for a root-owned location, rerun with `sudo linearctl --update`.
+- **`npm`**: asks npm for the latest `@qwrobinson/linearctl` and runs `npm install --global --prefix <prefix> @qwrobinson/linearctl@<version>` for a global install, or `npm install --prefix <project> ...` for a project install. If the prefix isn't writable, it prints the command to run with the right permissions instead of running npm.
+
+For every other method, including the Debian package (`/usr/bin/linearctl` owned by dpkg), it changes nothing and exits 1 with the next step: rerun `install.sh` (which installs the new `.deb`), `brew upgrade linearctl`, your AUR helper, and so on. Already up to date exits 0 on any method.
+
+`--json` returns `status` (`updated`, `up-to-date`, `would-update` for `--dry-run`, `manual` or `failed`), `updated`, `currentVersion`, `targetVersion`, `installMethod`, `executable`, and, when they apply, `asset`, `command`, `recommendation` and `error`. Exit 0 for `updated`, `up-to-date` and `would-update`; 1 otherwise. After an update, run `linearctl skills install` so installed agent skills match the new version. See [Distribution and updates](distribution.md).
 
 ## Generated API
 

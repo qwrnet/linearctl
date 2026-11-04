@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-04
+
+### Added
+
+- `linearctl --update` (also `linearctl update install`) updates the installed CLI. It finds the real executable (symlinks resolved, custom directories included), replaces a GitHub Releases binary with the latest release for the OS and architecture after verifying it against `checksums.txt` and running it once, and updates an npm install through npm in its own global or project prefix. For the Debian package, Homebrew, the AUR, pnpm, Yarn, Bun, npx, Nix, a checkout or an unrecognized install it changes nothing and prints the next step. `--dry-run` shows the plan; `--json` returns `status`, `currentVersion`, `targetVersion`, `installMethod` and `executable`. A failed download, a checksum mismatch, a binary that doesn't run or a missing permission leaves the installed CLI untouched (QWR-542).
+
+### Changed
+
+- `linearctl update check` recommends `linearctl --update` for GitHub Releases binaries and npm installs, and reports `npx`, `pnpm`, `yarn`, `bun`, `nix` and `unknown` installs instead of calling them `npm` or `binary`.
+
 ## [0.10.0] - 2026-11-02
 
 ### Added

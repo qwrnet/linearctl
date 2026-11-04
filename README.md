@@ -15,7 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | 
 Or install a specific version:
 
 ```bash
-LINEAR_VERSION=v0.10.0 curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh
+LINEAR_VERSION=v0.11.0 curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh
 ```
 
 On Debian/Ubuntu, the installer automatically uses the `.deb` package. To skip deb and install the raw binary instead:
@@ -72,10 +72,13 @@ invalid signature (verification fails or execution exits 137), follow the
 
 ### Updating
 
-Run `linearctl update check` to see whether a newer release exists and the right way to update for
-how linearctl was installed. It never replaces the binary itself: npm and other package managers
-own their installs, and a raw binary is updated by rerunning `install.sh`. See
-[docs/distribution.md](docs/distribution.md).
+Run `linearctl --update` to update in place. It works out how linearctl was installed: a binary from
+GitHub Releases (`install.sh`, `install.ps1` or a manual download, wherever it lives, symlinks
+resolved) is replaced by the latest release for your OS and architecture after its checksum is
+verified, and an npm install is updated through npm in its own scope and prefix. The Debian
+package, Homebrew, the AUR and other package managers own their installs, so for those it prints the
+command to run instead. `linearctl --update --dry-run` shows what it would do, and
+`linearctl update check` only compares versions. See [docs/distribution.md](docs/distribution.md).
 
 ## Quick start
 
@@ -167,7 +170,7 @@ For command discovery, agents can inspect the stable curated metadata with `line
 | [schema](docs/commands.md#schema) | version, pull, check |
 | [workspace](docs/commands.md#workspace) | list |
 | [skills](docs/commands.md#skills) | install, list |
-| [update](docs/commands.md#update) | check |
+| [update](docs/commands.md#update) | check, install |
 | [api](docs/commands.md#generated-api) | Generated commands for any Linear API resource |
 | [gql](docs/commands.md#raw-graphql) | Raw GraphQL queries and mutations |
 
