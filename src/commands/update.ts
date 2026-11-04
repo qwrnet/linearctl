@@ -46,7 +46,6 @@ export interface UpdateCheckResult {
 export interface DetectionOptions {
   pathExists?: (path: string) => boolean;
   listDir?: (path: string) => string[];
-  platform?: NodeJS.Platform;
   /** True when node or bun runs a script; false for the standalone release binary. */
   viaInterpreter?: boolean;
 }
@@ -144,6 +143,12 @@ const PROJECT_LOCKFILES: [string, InstallMethod][] = [
   ["pnpm-lock.yaml", "pnpm"], ["bun.lock", "bun"], ["bun.lockb", "bun"],
 ];
 
+/** Whether [dir] is a JS project (a package.json or a lockfile), so its node_modules isn't a global prefix. */
+function isProject(dir: string, platform: NodeJS.Platform, pathExists: (path: string) => boolean): boolean {
+  return ["package.json", ...PROJECT_LOCKFILES.map(([file]) => file)]
+    .some((file) => pathExists(nativePath(`${dir}/${file}`, platform)));
+}
+
 /** The package manager whose lockfile [project] holds; "unknown" when none or several do. */
 function projectPackageManager(project: string, platform: NodeJS.Platform, pathExists: (path: string) => boolean): InstallMethod {
   const managers = new Set(PROJECT_LOCKFILES
@@ -159,14 +164,14 @@ function projectPackageManager(project: string, platform: NodeJS.Platform, pathE
 export function detectInstallation(executablePath: string, options: DetectionOptions = {}): Installation {
   const pathExists = options.pathExists ?? existsSync;
   const listDir = options.listDir ?? ((path: string) => readdirSync(path));
-  const platform = options.platform ?? process.platform;
+  // The layout follows the path's own style, not the host's: C:\... or \\server\... is Windows.
+  const platform: NodeJS.Platform = /^([A-Za-z]:[\\/]|\\\\)/.test(executablePath) ? "win32" : "linux";
   const executable = executablePath;
   const path = executablePath.replace(/\\/g, "/");
   const lower = path.toLowerCase();
   const result = (method: InstallMethod): Installation => ({ method, executable });
 
   if (lower.startsWith("/nix/store/")) return result("nix");
-  if (path.includes("/Cellar/") || path.includes("/homebrew/") || path.includes("/.linuxbrew/")) return result("homebrew");
 
   const marker = `/node_modules/${NPM_PACKAGE}/`;
   const markerIndex = path.lastIndexOf(marker);
@@ -175,6 +180,9 @@ export function detectInstallation(executablePath: string, options: DetectionOpt
     if (lower.includes("/.bun/install/global/")) return result("bun");
     if (lower.includes("/yarn/global/") || lower.includes("/yarn/data/global/") || lower.includes("/.yarn/")) return result("yarn");
     if (lower.includes("/_npx/")) return result("npx");
+    // A Homebrew formula keeps its npm package inside the Cellar; npm's own global installs under
+    // /opt/homebrew/lib/node_modules (Homebrew's node) are still npm's.
+    if (path.includes("/Cellar/")) return result("homebrew");
     const packageRoot = path.slice(0, markerIndex + marker.length - 1);
     const parent = dirname(path.slice(0, markerIndex + "/node_modules".length));
     // npm's global layout: <prefix>/lib/node_modules on Unix, <prefix>\node_modules on Windows,
@@ -183,7 +191,7 @@ export function detectInstallation(executablePath: string, options: DetectionOpt
     let prefix = parent;
     if (platform === "win32") {
       if (pathExists(nativePath(`${parent}/linearctl.cmd`, platform))) scope = "global";
-    } else if (basename(parent) === "lib") {
+    } else if (basename(parent) === "lib" && !isProject(parent, platform, pathExists)) {
       scope = "global";
       prefix = dirname(parent);
     }
@@ -193,6 +201,8 @@ export function detectInstallation(executablePath: string, options: DetectionOpt
     // its lockfile say. Only a project npm alone locks is updated with npm.
     return { method: projectPackageManager(prefix, platform, pathExists), executable, npm };
   }
+
+  if (path.includes("/Cellar/") || path.includes("/homebrew/") || path.includes("/.linuxbrew/")) return result("homebrew");
 
   // A checkout run directly: bun src/cli/main.ts, node dist/cli/main.js (or src/index.ts).
   if (/\/(src|dist)\/(.+\/)?[^/]+\.(ts|js)$/.test(path)) return result("source");
@@ -241,7 +251,6 @@ export function currentInstallation(options: Partial<UpdateCommandOptions> = {})
     viaInterpreter: options.executablePath ? options.viaInterpreter ?? false : viaInterpreter,
     ...(options.pathExists ? { pathExists: options.pathExists } : {}),
     ...(options.listDir ? { listDir: options.listDir } : {}),
-    ...(options.platform ? { platform: options.platform } : {}),
   });
 }
 

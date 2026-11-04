@@ -32,7 +32,7 @@ lives, and that is the file that gets replaced.
 | Real path | Method | `--update` does |
 |---|---|---|
 | the release binary, anywhere not listed below | `binary` | downloads, verifies and replaces it |
-| `<prefix>/lib/node_modules/@qwrobinson/linearctl/` (Unix), `<prefix>\node_modules\...` beside `linearctl.cmd` (Windows) | `npm`, global | `npm install --global --prefix <prefix> @qwrobinson/linearctl@<latest>` |
+| `<prefix>/lib/node_modules/@qwrobinson/linearctl/` (Unix, when `<prefix>/lib` is not itself a project; Homebrew's node uses `/opt/homebrew/lib`), `<prefix>\node_modules\...` beside `linearctl.cmd` (Windows) | `npm`, global | `npm install --global --prefix <prefix> @qwrobinson/linearctl@<latest>` |
 | `<project>/node_modules/@qwrobinson/linearctl/`, project locked only by `package-lock.json` or `npm-shrinkwrap.json` | `npm`, project | `npm install --prefix <project> @qwrobinson/linearctl@<latest>` |
 | the same, locked by `yarn.lock`, `pnpm-lock.yaml` or `bun.lock(b)` | `yarn`, `pnpm`, `bun` | prints that tool's project update command |
 | the same, with no lockfile or several | `unknown` | prints: update with the project's package manager |
