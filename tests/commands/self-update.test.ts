@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
@@ -240,7 +240,9 @@ describe("linearctl --update: GitHub Releases binary", () => {
   });
 });
 
-const npmOptions = (overrides: Partial<SelfUpdateOptions>) => baseOptions({ platform: process.platform, viaInterpreter: true, ...overrides });
+// npm tests use the real filesystem: on Windows, a global install is recognised by its linearctl.cmd shim.
+const npmOptions = (overrides: Partial<SelfUpdateOptions>) =>
+  baseOptions({ platform: process.platform, viaInterpreter: true, pathExists: existsSync, ...overrides });
 
 function npmInstall(layout: "global" | "local") {
   const root = tempDir();
