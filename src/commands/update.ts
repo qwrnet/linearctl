@@ -62,8 +62,8 @@ export interface UpdateCommandOptions extends CommandOutputOptions, Omit<SelfUpd
 
 const MANUAL_RECOMMENDATIONS: Partial<Record<InstallMethod, string>> = {
   npx: `npx fetches the package on each run: use npx --yes ${NPM_PACKAGE}@latest, or install it with npm install --global ${NPM_PACKAGE}`,
-  pnpm: `Update with pnpm: pnpm add --global ${NPM_PACKAGE}@latest (or pnpm update ${NPM_PACKAGE} in the project)`,
-  yarn: `Update with Yarn: yarn global add ${NPM_PACKAGE}@latest (or yarn up ${NPM_PACKAGE} in the project)`,
+  pnpm: `Update with pnpm: pnpm add --global ${NPM_PACKAGE}@latest`,
+  yarn: `Update with Yarn: yarn global add ${NPM_PACKAGE}@latest`,
   bun: `Update with Bun: bun add --global ${NPM_PACKAGE}@latest`,
   homebrew: "brew upgrade linearctl",
   aur: "Update with your AUR helper (for example: yay -Syu linearctl)",
@@ -72,6 +72,13 @@ const MANUAL_RECOMMENDATIONS: Partial<Record<InstallMethod, string>> = {
   source: "git pull && bun install && bun run build",
   unknown: `linearctl could not tell how it was installed. Reinstall with the installer (${INSTALL_COMMAND}) or npm (npm install --global ${NPM_PACKAGE}@latest)`,
 };
+
+/** Project-scoped update commands, run in the project that holds the dependency. */
+const PROJECT_COMMANDS = {
+  pnpm: `pnpm update ${NPM_PACKAGE} --latest`,
+  yarn: `yarn up ${NPM_PACKAGE}`,
+  bun: `bun update ${NPM_PACKAGE} --latest`,
+} as const;
 
 /** Install methods `linearctl --update` performs itself; every other method gets a next step. */
 export function canSelfUpdate(method: InstallMethod): boolean {
@@ -86,6 +93,10 @@ export function manualRecommendation(installation: Installation, platform: NodeJ
       : `Rerun the installer: ${binaryInstallCommand(installation.executable)}`;
   }
   if (method === "npm") return npmInstallCommand(installation, "latest");
+  if (installation.npm?.scope === "local" && method in PROJECT_COMMANDS) {
+    const command = PROJECT_COMMANDS[method as keyof typeof PROJECT_COMMANDS];
+    return `Update the project's dependency with ${method}: cd ${displayArg(installation.npm.prefix)} && ${command}`;
+  }
   if (method === "unknown" && installation.npm) {
     return `linearctl could not tell which package manager owns ${installation.npm.prefix} (it needs exactly one lockfile). ` +
       `Update ${NPM_PACKAGE} with that project's package manager, for example: ${npmInstallCommand(installation, "latest")}`;

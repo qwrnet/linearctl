@@ -301,8 +301,22 @@ describe("linearctl --update: npm", () => {
     expect(code).toBe(1);
     const body = JSON.parse(env.text());
     expect(body.ok).toBe(false);
-    expect(body.errors[0].message).toBe("npm could not update @qwrobinson/linearctl: npm error code E404 | npm error 404 Not Found");
+    expect(body.errors[0].message).toBe("npm could not update @qwrobinson/linearctl; 0.10.0 is still installed: npm error code E404 | npm error 404 Not Found");
+    expect(body.errors[0].details.updated).toBe(false);
     expect(body.errors[0].details.recommendation).toBe(`npm install --global --prefix ${root} @qwrobinson/linearctl@0.11.0`);
+  });
+
+  it("reports what npm left installed when it fails after changing files", async () => {
+    const { packageRoot, script } = npmInstall("local");
+    const { run } = fakeRun({
+      install: () => {
+        writeFileSync(join(packageRoot, "package.json"), JSON.stringify({ version: "0.11.0" }));
+        return { status: 1, stdout: "", stderr: "npm error command failed: postinstall" };
+      },
+    });
+    const result = await selfUpdate(npmOptions({ executablePath: script, runCommand: run }));
+    expect(result).toMatchObject({ status: "failed", updated: true, targetVersion: "0.11.0" });
+    expect(result.error).toMatch(/after changing .* which now reports version 0\.11\.0: npm error command failed: postinstall$/);
   });
 
   it("reports when npm cannot be asked for the latest version", async () => {
@@ -355,9 +369,9 @@ describe("linearctl --update: installs it does not own", () => {
     const project = "/home/q/app";
     const script = `${project}/node_modules/@qwrobinson/linearctl/dist/cli/main.js`;
     const cases: [string[], string, RegExp][] = [
-      [["yarn.lock"], "yarn", /yarn up/],
-      [["bun.lock"], "bun", /bun add/],
-      [["pnpm-lock.yaml"], "pnpm", /pnpm update/],
+      [["yarn.lock"], "yarn", /^Update the project's dependency with yarn: cd \/home\/q\/app && yarn up @qwrobinson\/linearctl$/],
+      [["bun.lock"], "bun", /cd \/home\/q\/app && bun update @qwrobinson\/linearctl --latest$/],
+      [["pnpm-lock.yaml"], "pnpm", /cd \/home\/q\/app && pnpm update @qwrobinson\/linearctl --latest$/],
       [[], "unknown", /could not tell which package manager owns \/home\/q\/app/],
       [["package-lock.json", "yarn.lock"], "unknown", /exactly one lockfile/],
     ];

@@ -34,7 +34,7 @@ lives, and that is the file that gets replaced.
 | the release binary, anywhere not listed below | `binary` | downloads, verifies and replaces it |
 | `<prefix>/lib/node_modules/@qwrobinson/linearctl/` (Unix, when `<prefix>/lib` is not itself a project; Homebrew's node uses `/opt/homebrew/lib`), `<prefix>\node_modules\...` beside `linearctl.cmd` (Windows) | `npm`, global | `npm install --global --prefix <prefix> @qwrobinson/linearctl@<latest>` |
 | `<project>/node_modules/@qwrobinson/linearctl/`, project locked only by `package-lock.json` or `npm-shrinkwrap.json` | `npm`, project | `npm install --prefix <project> @qwrobinson/linearctl@<latest>` |
-| the same, locked by `yarn.lock`, `pnpm-lock.yaml` or `bun.lock(b)` | `yarn`, `pnpm`, `bun` | prints that tool's project update command |
+| the same, locked by `yarn.lock`, `pnpm-lock.yaml` or `bun.lock(b)` | `yarn`, `pnpm`, `bun` | prints that tool's update command for the project, for example `cd <project> && bun update @qwrobinson/linearctl --latest` |
 | the same, with no lockfile or several | `unknown` | prints: update with the project's package manager |
 | `/usr/bin/linearctl` owned by dpkg | `deb` | prints: rerun `install.sh`, which installs the new `.deb` with `sudo dpkg -i` |
 | `/usr/bin/linearctl` owned by pacman | `aur` | prints: your AUR helper, for example `yay -Syu linearctl` |
@@ -62,7 +62,7 @@ downloads the new `.deb`, verifies it against the same `checksums.txt`, and inst
 | missing `checksums.txt`, no entry for the asset, or a mismatch | `failed`; the download is discarded |
 | the new binary doesn't print `linearctl <version>` | `failed`; the staged file is removed |
 | the install directory or npm prefix isn't writable | `failed`, naming the path and the command to rerun with permission (for example `sudo linearctl --update`) |
-| npm exits non-zero | `failed`, with npm's last error lines and the npm command to rerun; npm keeps the previous version on a failed install |
+| npm exits non-zero | `failed`, with npm's last error lines and the npm command to rerun. npm normally keeps the previous version, but it can fail after changing files (a project's `postinstall`, for example): then `error` names the version now installed and `updated` says whether it is the target |
 
 On Windows the running `linearctl.exe` can't be overwritten, so it is renamed aside to
 `linearctl.exe.old-<id>`, the new one is moved into place, and the old copy is deleted then or by the

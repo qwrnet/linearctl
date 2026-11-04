@@ -300,15 +300,22 @@ function updateNpm(
 
   log(`Running ${command}`);
   const result = run("npm", args, { cwd: npm.prefix, timeoutMs: NPM_TIMEOUT_MS });
-  if (result.error || result.status !== 0) {
-    const why = result.error?.message ?? (tail(result.stderr) || `exit ${result.status}`);
-    throw new UpdateFailure(`npm could not update ${NPM_PACKAGE}: ${why}`, command);
-  }
   let installed: string | undefined;
   try {
     installed = (JSON.parse(readFileSync(join(npm.packageRoot, "package.json"), "utf8")) as { version?: string }).version;
   } catch {
     installed = undefined;
+  }
+  if (result.error || result.status !== 0) {
+    const why = result.error?.message ?? (tail(result.stderr) || `exit ${result.status}`);
+    // npm can fail after it has already changed files (a project's postinstall script, say), so
+    // report what is installed now rather than assuming nothing changed.
+    if (installed !== base.currentVersion) {
+      return { ...base, status: "failed", updated: installed === target, command,
+        error: `npm exited with an error after changing ${npm.packageRoot}, which now reports version ${installed ?? "unknown"}: ${why}`,
+        recommendation: `Check npm's output in ${npm.prefix}, then rerun: ${command}` };
+    }
+    throw new UpdateFailure(`npm could not update ${NPM_PACKAGE}; ${base.currentVersion} is still installed: ${why}`, command);
   }
   if (installed !== target) {
     throw new UpdateFailure(`npm finished, but ${npm.packageRoot} reports version ${installed ?? "unknown"} instead of ${target}`, command);
