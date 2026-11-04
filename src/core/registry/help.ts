@@ -28,7 +28,7 @@ const COMMAND_DETAILS: Record<string, CommandDetails> = {
   auth: { summary: "Profiles and authentication", group: "Setup", topLevel: true },
   schema: { summary: "Schema version, pull, and drift checks", group: "Setup", topLevel: true },
   skills: { summary: "Install bundled agent skills", group: "Setup", topLevel: true },
-  update: { summary: "Check for a newer release and how to update", group: "Setup", topLevel: true },
+  update: { summary: "Check for and install linearctl updates (linearctl --update)", group: "Setup", topLevel: true },
   gql: { summary: "Raw GraphQL query, mutation, and introspection", group: "Setup" },
 };
 
@@ -72,6 +72,10 @@ export function generateTopLevelHelp(): string {
   lines.push("  linearctl api <resource> --help  List generated operations for a resource");
   lines.push("  linearctl api search <term>      Search generated commands");
   lines.push("  linearctl gql introspect --json  Inspect the GraphQL schema");
+  lines.push("");
+  lines.push("Updating:");
+  lines.push("  linearctl --update [--dry-run]   Update this install (GitHub release binary or npm)");
+  lines.push("  linearctl update check           Compare with the latest release");
   lines.push("");
   lines.push("Discovery:");
   lines.push("  linearctl <resource> --help      Show commands for one curated resource");

@@ -13,6 +13,7 @@ export interface OptionSpec {
 export const OPTION_CATALOG: Record<string, OptionSpec> = {
   help: { type: "boolean", short: "h" },
   version: { type: "boolean", short: "V" },
+  update: { type: "boolean" },
   json: { type: "boolean" },
   "json-envelope": { type: "boolean" },
   jsonl: { type: "boolean" },

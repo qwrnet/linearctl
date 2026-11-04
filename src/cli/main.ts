@@ -230,6 +230,7 @@ function toParsedCliArguments(values: Record<string, unknown>, positionals: stri
   return {
     help,
     version: values.version === true,
+    update: values.update === true,
     json,
     jsonEnvelope,
     jsonl,
@@ -371,6 +372,14 @@ export async function main(argv: string[], runtime: MainRuntime = defaultRuntime
     return ExitCode.Success;
   }
 
+  if (args.update) {
+    // Standalone only: `linearctl --update [--dry-run] [--json|--json-envelope]`.
+    if (args.positionals.length > 0) {
+      return validationError("--update takes no command or arguments; run 'linearctl --update' on its own");
+    }
+    return runSelfUpdate(args, runtime, fail);
+  }
+
   if (args.team !== undefined && args.allTeams) {
     return validationError("--team cannot be used with --all-teams");
   }
@@ -419,6 +428,25 @@ export async function main(argv: string[], runtime: MainRuntime = defaultRuntime
 
   const unknown = commandName ?? args.positionals.join(" ");
   return validationError(`unknown command '${unknown}'. Run 'linearctl --help' for available commands.`);
+}
+
+async function runSelfUpdate(
+  args: ParsedCliArguments,
+  runtime: MainRuntime,
+  fail: (failure: CommandFailure) => number
+): Promise<number> {
+  const registration = findCommand("update")!;
+  try {
+    const options = registration.buildOptions(args, runtime.env, runtime.stdin) as Record<string, unknown>;
+    Object.assign(options, {
+      stdout: runtime.stdout,
+      stderr: runtime.stderr,
+      ...(runtime.fetchImpl === undefined ? {} : { fetchImpl: runtime.fetchImpl }),
+    });
+    return await registration.handler(["install"], options);
+  } catch (error) {
+    return fail(mapCommandFailure(error));
+  }
 }
 
 function emitCliFailure(

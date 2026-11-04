@@ -496,13 +496,15 @@ export const COMMAND_REGISTRY: readonly CommandRegistration[] = [
     name: "update",
     optionKeys: [
       ...OPTION_GROUPS.global,
+      "dry-run",
     ],
     subcommands: {
-      check: { usage: "linearctl update check [--json]" },
+      check:   { usage: "linearctl update check [--json]" },
+      install: { usage: "linearctl update install [--dry-run] [--json] (same as: linearctl --update)" },
     },
     handler: handleUpdateCommand,
     buildOptions: (args) => ({
-      json: args.json, jsonEnvelope: args.jsonEnvelope,
+      json: args.json, jsonEnvelope: args.jsonEnvelope, dryRun: args.dryRun,
     }),
   },
 ] as const;

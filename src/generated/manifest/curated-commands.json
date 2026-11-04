@@ -1243,5 +1243,22 @@
       "json",
       "json-envelope"
     ]
+  },
+  {
+    "commandPath": "linearctl update install",
+    "usage": "linearctl update install [--dry-run] [--json] (same as: linearctl --update)",
+    "layer": "curated",
+    "resource": "update",
+    "operation": "install",
+    "stability": "stable",
+    "preferredForAgents": true,
+    "safety": "safe",
+    "inputMode": "flags",
+    "outputShape": "object",
+    "supportedOutputModes": [
+      "human",
+      "json",
+      "json-envelope"
+    ]
   }
 ]
