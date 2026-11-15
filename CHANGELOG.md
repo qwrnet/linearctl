@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `linearctl skills install` and `linearctl skills list` support the pi coding agent. Project scope writes `.pi/skills/`; user scope writes `~/.pi/agent/skills/` (or `$PI_CODING_AGENT_DIR/skills/`) when pi's agent directory exists. `skills list --json` adds `installs[]` records with `tool: "pi"` for both scopes; existing records are unchanged (QWR-637).
 
+### Fixed
+
+- `project update --target-date none` and `--start-date none` clear the date by sending `targetDate: null` / `startDate: null`, the same way `issue update --due-date none` does; `--dry-run` shows `null`. They were rejected as invalid dates before (QWR-636, #205).
+
 ## [0.11.0] - 2026-11-04
 
 ### Added

@@ -10,6 +10,7 @@ import { resolveContentInput, resolveDescriptionInput } from "../core/io/text-in
 import { resolveProjectId, resolveTeamId, resolveUserId, looksLikeId } from "../core/resolution/resolve.js";
 import { normalizeRetryOptions } from "../core/transport/retry.js";
 import { CommandContext, createCommandContext } from "../core/runtime/command-context.js";
+import { isUnsetValue } from "./issue/input.js";
 import { runTwoStepWorkflow, WorkflowStepError } from "../core/runtime/workflow.js";
 
 // Linear's query-complexity budget is exceeded by 250-project pages because
@@ -524,6 +525,17 @@ function printHumanProject(project: NormalizedProject, options: CommandIO): void
   stdout.write(`  URL:    ${project.url}\n`);
 }
 
+// project update only: "none" (or "null"/empty) clears the date, as issue update --due-date does.
+function validateClearableIsoDate(value: string, flagName: string, options: ProjectCommandOptions): number | undefined {
+  if (isUnsetValue(value)) {
+    return undefined;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return emitValidationError(`Invalid --${flagName}, expected YYYY-MM-DD or "none" to clear it.`, options);
+  }
+  return validateIsoDate(value, flagName, options);
+}
+
 function validateIsoDate(value: string, flagName: string, options: ProjectCommandOptions): number | undefined {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return emitValidationError(`Invalid --${flagName}, expected YYYY-MM-DD.`, options);
@@ -829,18 +841,18 @@ async function handleProjectUpdate(
     input.content = content;
   }
   if (options.startDate !== undefined) {
-    const validation = validateIsoDate(options.startDate, "start-date", options);
+    const validation = validateClearableIsoDate(options.startDate, "start-date", options);
     if (validation !== undefined) {
       return validation;
     }
-    input.startDate = options.startDate;
+    input.startDate = isUnsetValue(options.startDate) ? null : options.startDate;
   }
   if (options.targetDate !== undefined) {
-    const validation = validateIsoDate(options.targetDate, "target-date", options);
+    const validation = validateClearableIsoDate(options.targetDate, "target-date", options);
     if (validation !== undefined) {
       return validation;
     }
-    input.targetDate = options.targetDate;
+    input.targetDate = isUnsetValue(options.targetDate) ? null : options.targetDate;
   }
 
   const statusValue = options.status ?? options.state;
@@ -1186,7 +1198,7 @@ export async function handleProjectCommand(
   if (subcommand === "update") {
     const id = rest[0];
     if (id === undefined || id === "") {
-      return emitValidationError("usage: linearctl project update <id> [--name ...] [--description <text>|--description-file <path|->] [--content <text>|--content-file <path|->] [--status <name|type|id>|--state <name|type>] [--lead <user>] [--start-date <date>] [--target-date <date>] [--json]", options);
+      return emitValidationError("usage: linearctl project update <id> [--name ...] [--description <text>|--description-file <path|->] [--content <text>|--content-file <path|->] [--status <name|type|id>|--state <name|type>] [--lead <user>] [--start-date <YYYY-MM-DD|none>] [--target-date <YYYY-MM-DD|none>] [--json]", options);
     }
     if (rest.length > 1) {
       return emitValidationError("project update accepts exactly one identifier.", options);

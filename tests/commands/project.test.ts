@@ -1489,6 +1489,82 @@ describe("handleProjectCommand — project update", () => {
     }
   });
 
+  it("clears start and target dates with none", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "linear-cli-project-"));
+    const paths = await writeProfileFiles(directory);
+    const calls: Array<{ query: string; variables?: Record<string, unknown> }> = [];
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push(JSON.parse(String(init?.body ?? "{}")) as { query: string; variables?: Record<string, unknown> });
+      return new Response(JSON.stringify({
+        data: { projectUpdate: { success: true, project: makeRawProject() } }
+      }), { status: 200 });
+    }) as FetchLike;
+    const output = captureOutput();
+
+    try {
+      const exitCode = await handleProjectCommand(["update", "proj-uuid-1"], {
+        ...baseOptions(paths),
+        startDate: "none",
+        targetDate: "NONE",
+        fetchImpl
+      });
+
+      expect(exitCode).toBe(0);
+      const updateCall = calls.find((call) => call.query.includes("ProjectUpdate"));
+      expect(updateCall?.variables?.input).toEqual({ startDate: null, targetDate: null });
+    } finally {
+      output.restore();
+    }
+  });
+
+  it("shows null for a cleared target date in --dry-run", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "linear-cli-project-"));
+    const paths = await writeProfileFiles(directory);
+    const fetchImpl = vi.fn() as unknown as FetchLike;
+    const output = captureOutput();
+
+    try {
+      const exitCode = await handleProjectCommand(["update", "proj-uuid-1"], {
+        ...baseOptions(paths),
+        targetDate: "none",
+        dryRun: true,
+        fetchImpl
+      });
+
+      expect(exitCode).toBe(0);
+      expect(fetchImpl).not.toHaveBeenCalled();
+      const parsed = JSON.parse(output.stdout.join(""));
+      expect(parsed.dryRun).toBe(true);
+      expect(parsed.input).toEqual({ id: "proj-uuid-1", targetDate: null });
+    } finally {
+      output.restore();
+    }
+  });
+
+  it("rejects invalid update dates and mentions none", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "linear-cli-project-"));
+    const paths = await writeProfileFiles(directory);
+    const output = captureOutput();
+
+    try {
+      const exitCode = await handleProjectCommand(["update", "proj-uuid-1"], {
+        ...baseOptions(paths),
+        targetDate: "soon"
+      });
+      expect(exitCode).toBe(5);
+      expect(output.stderr.join("")).toContain('expected YYYY-MM-DD or "none" to clear it');
+
+      const calendarExit = await handleProjectCommand(["update", "proj-uuid-1"], {
+        ...baseOptions(paths),
+        startDate: "2026-02-30"
+      });
+      expect(calendarExit).toBe(5);
+      expect(output.stderr.join("")).toContain("not a real calendar date");
+    } finally {
+      output.restore();
+    }
+  });
+
   it("returns exit code 5 when no update flags provided", async () => {
     const directory = await mkdtemp(join(tmpdir(), "linear-cli-project-"));
     const paths = await writeProfileFiles(directory);
