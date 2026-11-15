@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `project update --target-date none` and `--start-date none` clear the date by sending `targetDate: null` / `startDate: null`, the same way `issue update --due-date none` does; `--dry-run` shows `null`. They were rejected as invalid dates before (QWR-636, #205).
+
 ## [0.11.0] - 2026-11-04
 
 ### Added

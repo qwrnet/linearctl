@@ -115,7 +115,7 @@ export const COMMAND_REGISTRY: readonly CommandRegistration[] = [
       get:                  { usage: "linearctl project get <name|id> [--json]" },
       list:                 { usage: "linearctl project list [--query <text>|--search <text>|--name <text>] [--team <id>] [--state <status-type> ...] [--all-teams] [--json]" },
       create:               { usage: "linearctl project create --name <name> [--description <text>|--description-file <path|->] [--content <text>|--content-file <path|->] [--team <id>] [--lead <user>] [--status <id|name|type>|--state <name|type>] [--start-date <date>] [--target-date <date>] [--json]" },
-      update:               { usage: "linearctl project update <id> [--name ...] [--description <text>|--description-file <path|->] [--content <text>|--content-file <path|->] [--status <name|type|id>|--state <name|type>] [--lead <user>] [--start-date <date>] [--target-date <date>] [--json]" },
+      update:               { usage: "linearctl project update <id> [--name ...] [--description <text>|--description-file <path|->] [--content <text>|--content-file <path|->] [--status <name|type|id>|--state <name|type>] [--lead <user>] [--start-date <YYYY-MM-DD|none>] [--target-date <YYYY-MM-DD|none>] [--json]" },
       "create-with-issues": { usage: "linearctl project create-with-issues --name <name> --team <id> --issues-json <json> [--description <text>|--description-file <path|->] [--content <text>|--content-file <path|->] [--lead <user>] [--status <id|name|type>|--state <name|type>] [--start-date <date>] [--target-date <date>] [--json]" },
       delete:               { usage: "linearctl project delete <id> [--json]" },
     },
