@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-14
+
+### Added
+
+- `linearctl skills install` and `linearctl skills list` support the pi coding agent. Project scope writes `.pi/skills/`; user scope writes `~/.pi/agent/skills/` (or `$PI_CODING_AGENT_DIR/skills/`) when pi's agent directory exists. `skills list --json` adds `installs[]` records with `tool: "pi"` for both scopes; existing records are unchanged (QWR-637).
+
 ## [0.11.0] - 2026-11-04
 
 ### Added

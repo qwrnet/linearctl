@@ -14,6 +14,7 @@ export function smokeBinary(command: string[], sourceRoot = process.cwd()): void
   // Force project-only skill installation, even on developer machines with agents installed.
   mkdirSync(join(project, ".claude"));
   mkdirSync(join(project, ".codex"));
+  mkdirSync(join(project, ".pi"));
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) =>
     !/^(LINEAR_|XDG_)/i.test(key)
   ));
@@ -31,7 +32,7 @@ export function smokeBinary(command: string[], sourceRoot = process.cwd()): void
       .filter((entry) => entry.isDirectory() && existsSync(join(skillsDir, entry.name, "SKILL.md")))
       .map((entry) => entry.name).sort();
     assert.ok(skills.length > 0, "No source skills found");
-    for (const agent of [".claude", ".codex"]) {
+    for (const agent of [".claude", ".codex", ".pi"]) {
       const installed = join(project, agent, "skills");
       assert.deepEqual(readdirSync(installed).sort(), skills, "Bundled skill names differ from source");
       for (const skill of skills) {

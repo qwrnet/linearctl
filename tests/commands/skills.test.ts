@@ -2,7 +2,7 @@ import { mkdtemp, readFile, mkdir, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handleSkillsCommand } from "../../src/commands/skills.js";
 import { EMBEDDED_SKILLS } from "../../src/generated/embedded-skills.js";
 
@@ -33,6 +33,15 @@ function captureStderr() {
 }
 
 describe("handleSkillsCommand", () => {
+  const originalPiDir = process.env.PI_CODING_AGENT_DIR;
+  beforeEach(() => {
+    delete process.env.PI_CODING_AGENT_DIR;
+  });
+  afterEach(() => {
+    if (originalPiDir === undefined) delete process.env.PI_CODING_AGENT_DIR;
+    else process.env.PI_CODING_AGENT_DIR = originalPiDir;
+  });
+
   describe("skills list", () => {
     it("returns embedded skill names in json mode", async () => {
       const { chunks, spy } = captureStdout();
@@ -107,7 +116,7 @@ describe("handleSkillsCommand", () => {
 
         const parsed = JSON.parse(chunks.join(""));
         const linearctl = parsed.find((entry: { name: string }) => entry.name === "linearctl");
-        expect(linearctl.installs).toHaveLength(4);
+        expect(linearctl.installs).toHaveLength(6);
         expect(linearctl.installs).toContainEqual({
           tool: "claude",
           scope: "user",
@@ -130,6 +139,32 @@ describe("handleSkillsCommand", () => {
           upToDate: false,
           error: expect.stringContaining("EISDIR")
         });
+
+        expect(linearctl.installs).toContainEqual({
+          tool: "pi",
+          scope: "user",
+          path: join(tempHome, ".pi", "agent", "skills", "linearctl", "SKILL.md"),
+          installed: false,
+          upToDate: false
+        });
+        expect(linearctl.installs).toContainEqual({
+          tool: "pi",
+          scope: "project",
+          path: join(process.cwd(), ".pi", "skills", "linearctl", "SKILL.md"),
+          installed: false,
+          upToDate: false
+        });
+        // The original records keep their positions; pi records are appended.
+        expect(linearctl.installs.map((install: { tool: string; scope: string }) => `${install.tool}:${install.scope}`)).toEqual([
+          "claude:user", "codex:user", "claude:project", "codex:project", "pi:user", "pi:project"
+        ]);
+        for (const install of linearctl.installs) {
+          expect(Object.keys(install).sort()).toEqual(
+            install.error === undefined
+              ? ["installed", "path", "scope", "tool", "upToDate"]
+              : ["error", "installed", "path", "scope", "tool", "upToDate"]
+          );
+        }
 
         const rawGql = parsed.find((entry: { name: string }) => entry.name === "linearctl-raw-gql");
         expect(rawGql.installs).toContainEqual({
@@ -161,9 +196,9 @@ describe("handleSkillsCommand", () => {
         expect(code).toBe(0);
 
         const parsed = JSON.parse(chunks.join(""));
-        // Project installs to both .claude and .codex
-        expect(parsed.targets).toHaveLength(2);
-        expect(parsed.installed).toHaveLength(skillCount * 2);
+        // Project installs to .claude, .codex and .pi
+        expect(parsed.targets).toHaveLength(3);
+        expect(parsed.installed).toHaveLength(skillCount * 3);
 
         // Verify directory structure: <name>/SKILL.md
         for (const entry of parsed.installed) {
@@ -175,6 +210,10 @@ describe("handleSkillsCommand", () => {
         // Verify both agent dirs were created
         expect(existsSync(join(tempDir, ".claude", "skills"))).toBe(true);
         expect(existsSync(join(tempDir, ".codex", "skills"))).toBe(true);
+        expect(existsSync(join(tempDir, ".pi", "skills", "linearctl", "SKILL.md"))).toBe(true);
+        expect(parsed.installed).toContainEqual(expect.objectContaining({
+          agent: "pi", scope: "project", displayName: "pi (project)"
+        }));
       } finally {
         stdoutSpy.mockRestore();
         process.chdir(originalCwd);
@@ -194,9 +233,10 @@ describe("handleSkillsCommand", () => {
         expect(code).toBe(0);
 
         const parsed = JSON.parse(chunks.join(""));
-        // User level installs to both .claude and .codex when neither detected
-        expect(parsed.targets).toHaveLength(2);
-        expect(parsed.installed).toHaveLength(skillCount * 2);
+        // User level installs to .claude, .codex and pi when none is detected
+        expect(parsed.targets).toHaveLength(3);
+        expect(parsed.installed).toHaveLength(skillCount * 3);
+        expect(parsed.targets).toContain(join(tempDir, ".pi", "agent", "skills"));
 
         for (const entry of parsed.installed) {
           expect(entry.path).toContain(tempDir);
@@ -235,6 +275,63 @@ describe("handleSkillsCommand", () => {
       }
     });
 
+    it("user level installs to pi when ~/.pi/agent exists", async () => {
+      const tempDir = await mkdtemp(join(tmpdir(), "linearctl-skills-pi-"));
+      await mkdir(join(tempDir, ".pi", "agent"), { recursive: true });
+      const originalHome = process.env.HOME;
+      process.env.HOME = tempDir;
+
+      const { chunks, spy: stdoutSpy } = captureStdout();
+
+      try {
+        const code = await handleSkillsCommand(["install"], baseOptions({ scope: "user" }));
+        expect(code).toBe(0);
+
+        const parsed = JSON.parse(chunks.join(""));
+        expect(parsed.targets).toEqual([join(tempDir, ".pi", "agent", "skills")]);
+        for (const name of Object.keys(EMBEDDED_SKILLS)) {
+          const path = join(tempDir, ".pi", "agent", "skills", name, "SKILL.md");
+          expect(await readFile(path, "utf8")).toBe(EMBEDDED_SKILLS[name]!.content);
+        }
+      } finally {
+        stdoutSpy.mockRestore();
+        process.env.HOME = originalHome;
+      }
+    });
+
+    it("follows PI_CODING_AGENT_DIR for pi's user directory in install and list", async () => {
+      const tempHome = await mkdtemp(join(tmpdir(), "linearctl-skills-pi-env-"));
+      const piDir = join(tempHome, "custom-pi");
+      await mkdir(piDir, { recursive: true });
+      const originalHome = process.env.HOME;
+      process.env.HOME = tempHome;
+      process.env.PI_CODING_AGENT_DIR = "~/custom-pi";
+
+      const install = captureStdout();
+      try {
+        expect(await handleSkillsCommand(["install"], baseOptions({ scope: "user" }))).toBe(0);
+      } finally {
+        install.spy.mockRestore();
+      }
+      expect(JSON.parse(install.chunks.join("")).targets).toEqual([join(piDir, "skills")]);
+
+      const list = captureStdout();
+      try {
+        expect(await handleSkillsCommand(["list"], baseOptions())).toBe(0);
+      } finally {
+        list.spy.mockRestore();
+        process.env.HOME = originalHome;
+      }
+      const linearctl = JSON.parse(list.chunks.join("")).find((entry: { name: string }) => entry.name === "linearctl");
+      expect(linearctl.installs).toContainEqual({
+        tool: "pi",
+        scope: "user",
+        path: join(piDir, "skills", "linearctl", "SKILL.md"),
+        installed: true,
+        upToDate: true
+      });
+    });
+
     it("json mode defaults to project scope without prompting", async () => {
       const tempDir = await mkdtemp(join(tmpdir(), "linearctl-skills-json-"));
       const originalCwd = process.cwd();
@@ -254,6 +351,26 @@ describe("handleSkillsCommand", () => {
         process.chdir(originalCwd);
       }
     });
+  });
+
+  it("embeds SKILL.md frontmatter that pi's Agent Skills loader accepts", () => {
+    for (const [dirName, skill] of Object.entries(EMBEDDED_SKILLS)) {
+      const match = /^---\n([\s\S]*?)\n---\n/.exec(skill.content);
+      expect(match, `${dirName} has no frontmatter block`).not.toBeNull();
+      const fields: Record<string, string> = Object.fromEntries(
+        match![1]!.split("\n").map((line) => {
+          const index = line.indexOf(":");
+          return [line.slice(0, index).trim(), line.slice(index + 1).trim()];
+        })
+      );
+      // Names: lowercase letters, digits and single hyphens, at most 64 chars, matching the directory.
+      expect(fields.name ?? "").toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+      expect((fields.name ?? "").length).toBeLessThanOrEqual(64);
+      expect(fields.name).toBe(dirName);
+      // Descriptions are required and at most 1024 chars.
+      expect((fields.description ?? "").length).toBeGreaterThan(0);
+      expect((fields.description ?? "").length).toBeLessThanOrEqual(1024);
+    }
   });
 
   it("rejects unknown subcommand", async () => {

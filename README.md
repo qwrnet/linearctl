@@ -1,6 +1,6 @@
 # linearctl
 
-Agent-first CLI for the Linear API. Built to be used by LLM coding agents like Claude Code and Codex, but works just as well for humans at the terminal.
+Agent-first CLI for the Linear API. Built to be used by LLM coding agents like Claude Code, Codex, and pi, but works just as well for humans at the terminal.
 
 Three command layers: curated commands for common workflows, a generated API layer for full schema coverage, and raw GraphQL as a fallback. Human-readable output is the default; pass `--json` or `--json-envelope` for stable machine-readable contracts that agents can rely on.
 
@@ -15,7 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | 
 Or install a specific version:
 
 ```bash
-LINEAR_VERSION=v0.11.0 curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh
+LINEAR_VERSION=v0.12.0 curl -fsSL https://raw.githubusercontent.com/qwrnet/linearctl/main/install.sh | sh
 ```
 
 On Debian/Ubuntu, the installer automatically uses the `.deb` package. To skip deb and install the raw binary instead:

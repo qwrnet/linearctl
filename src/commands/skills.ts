@@ -18,6 +18,8 @@ interface AgentTarget {
   scope: string;
   displayName: string;
   dir: string;
+  /** Directory whose presence means the agent is installed (user scope only). */
+  detectDir?: string;
 }
 
 interface SkillInstallResult {
@@ -46,11 +48,10 @@ function isTty(stream?: NodeJS.ReadableStream): boolean {
 }
 
 function discoverAgentTargets(scope: "user" | "project"): AgentTarget[] {
-  const home = process.env.HOME ?? homedir();
   const knownTargets = knownAgentTargets().filter((target) => target.scope === scope);
   const detectedTargets = scope === "project"
     ? knownTargets
-    : knownTargets.filter((target) => existsSync(join(home, `.${target.agent}`)));
+    : knownTargets.filter((target) => target.detectDir !== undefined && existsSync(target.detectDir));
   const targets = detectedTargets.length > 0 ? detectedTargets : knownTargets;
 
   // Deduplicate by resolved path
@@ -62,14 +63,29 @@ function discoverAgentTargets(scope: "user" | "project"): AgentTarget[] {
   });
 }
 
+/** pi's agent directory: `PI_CODING_AGENT_DIR` (with `~` expanded) or `~/.pi/agent`, as pi resolves it. */
+function piAgentDir(home: string): string {
+  const override = process.env.PI_CODING_AGENT_DIR;
+  if (override) {
+    if (override === "~") return home;
+    if (override.startsWith("~/") || override.startsWith("~\\")) return join(home, override.slice(2));
+    return override;
+  }
+  return join(home, ".pi", "agent");
+}
+
 function knownAgentTargets(): AgentTarget[] {
   const home = process.env.HOME ?? homedir();
   const cwd = process.cwd();
+  const piDir = piAgentDir(home);
   return [
-    { agent: "claude", scope: "user", displayName: "claude (user)", dir: join(home, ".claude", "skills") },
-    { agent: "codex", scope: "user", displayName: "codex (user)", dir: join(home, ".codex", "skills") },
+    { agent: "claude", scope: "user", displayName: "claude (user)", dir: join(home, ".claude", "skills"), detectDir: join(home, ".claude") },
+    { agent: "codex", scope: "user", displayName: "codex (user)", dir: join(home, ".codex", "skills"), detectDir: join(home, ".codex") },
     { agent: "claude", scope: "project", displayName: "claude (project)", dir: join(cwd, ".claude", "skills") },
-    { agent: "codex", scope: "project", displayName: "codex (project)", dir: join(cwd, ".codex", "skills") }
+    { agent: "codex", scope: "project", displayName: "codex (project)", dir: join(cwd, ".codex", "skills") },
+    // pi follows the original four targets so their positions in `installs[]` stay stable.
+    { agent: "pi", scope: "user", displayName: "pi (user)", dir: join(piDir, "skills"), detectDir: piDir },
+    { agent: "pi", scope: "project", displayName: "pi (project)", dir: join(cwd, ".pi", "skills") }
   ];
 }
 
@@ -129,8 +145,8 @@ async function promptScope(stdinStream?: NodeJS.ReadableStream, options: Command
 
   return new Promise((resolve) => {
     stderr.write("\nWhere should skills be installed?\n");
-    stderr.write("  1. Project level (.claude/skills/ and .codex/skills/ in current directory)\n");
-    stderr.write("  2. User level (~/.claude/skills/ and ~/.codex/skills/)\n");
+    stderr.write("  1. Project level (.claude/skills/, .codex/skills/ and .pi/skills/ in current directory)\n");
+    stderr.write("  2. User level (~/.claude/skills/, ~/.codex/skills/ and ~/.pi/agent/skills/ for detected agents)\n");
     stderr.write("\n");
 
     const ask = () => {

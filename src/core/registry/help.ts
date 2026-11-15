@@ -27,7 +27,7 @@ const COMMAND_DETAILS: Record<string, CommandDetails> = {
   workspace: { summary: "Workspace information", group: "Workspace data", topLevel: true },
   auth: { summary: "Profiles and authentication", group: "Setup", topLevel: true },
   schema: { summary: "Schema version, pull, and drift checks", group: "Setup", topLevel: true },
-  skills: { summary: "Install bundled agent skills", group: "Setup", topLevel: true },
+  skills: { summary: "Install bundled agent skills for Claude Code, Codex, and pi", group: "Setup", topLevel: true },
   update: { summary: "Check for and install linearctl updates (linearctl --update)", group: "Setup", topLevel: true },
   gql: { summary: "Raw GraphQL query, mutation, and introspection", group: "Setup" },
 };
