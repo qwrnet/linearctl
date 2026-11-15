@@ -379,7 +379,7 @@
   },
   {
     "commandPath": "linearctl project update",
-    "usage": "linearctl project update <id> [--name ...] [--description <text>|--description-file <path|->] [--content <text>|--content-file <path|->] [--status <name|type|id>|--state <name|type>] [--lead <user>] [--start-date <date>] [--target-date <date>] [--json]",
+    "usage": "linearctl project update <id> [--name ...] [--description <text>|--description-file <path|->] [--content <text>|--content-file <path|->] [--status <name|type|id>|--state <name|type>] [--lead <user>] [--start-date <YYYY-MM-DD|none>] [--target-date <YYYY-MM-DD|none>] [--json]",
     "layer": "curated",
     "resource": "project",
     "operation": "update",
