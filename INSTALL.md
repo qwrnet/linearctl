@@ -53,7 +53,7 @@ npx --yes @qwrobinson/linearctl --version
 linearctl skills install
 ```
 
-This auto-detects installed agents (Claude Code, Codex, pi) and writes the skills to the right directories.
+This auto-detects installed agents (Claude Code, Codex, pi, Google Antigravity) and writes the skills to the right directories.
 
 ## 3. Set up authentication
 

@@ -18,8 +18,8 @@ interface AgentTarget {
   scope: string;
   displayName: string;
   dir: string;
-  /** Directory whose presence means the agent is installed (user scope only). */
-  detectDir?: string;
+  /** Directories whose presence means the agent is installed (user scope only). */
+  detectDirs?: string[];
 }
 
 interface SkillInstallResult {
@@ -51,7 +51,7 @@ function discoverAgentTargets(scope: "user" | "project"): AgentTarget[] {
   const knownTargets = knownAgentTargets().filter((target) => target.scope === scope);
   const detectedTargets = scope === "project"
     ? knownTargets
-    : knownTargets.filter((target) => target.detectDir !== undefined && existsSync(target.detectDir));
+    : knownTargets.filter((target) => target.detectDirs?.some((dir) => existsSync(dir)) ?? false);
   const targets = detectedTargets.length > 0 ? detectedTargets : knownTargets;
 
   // Deduplicate by resolved path
@@ -74,18 +74,30 @@ function piAgentDir(home: string): string {
   return join(home, ".pi", "agent");
 }
 
+/** Config and surface directories that indicate Google Antigravity is installed. */
+function antigravityDetectDirs(home: string): string[] {
+  return [
+    join(home, ".gemini", "config"),
+    join(home, ".gemini", "antigravity"),
+    join(home, ".gemini", "antigravity-cli"),
+    join(home, ".gemini", "antigravity-ide")
+  ];
+}
+
 function knownAgentTargets(): AgentTarget[] {
   const home = process.env.HOME ?? homedir();
   const cwd = process.cwd();
   const piDir = piAgentDir(home);
   return [
-    { agent: "claude", scope: "user", displayName: "claude (user)", dir: join(home, ".claude", "skills"), detectDir: join(home, ".claude") },
-    { agent: "codex", scope: "user", displayName: "codex (user)", dir: join(home, ".codex", "skills"), detectDir: join(home, ".codex") },
+    { agent: "claude", scope: "user", displayName: "claude (user)", dir: join(home, ".claude", "skills"), detectDirs: [join(home, ".claude")] },
+    { agent: "codex", scope: "user", displayName: "codex (user)", dir: join(home, ".codex", "skills"), detectDirs: [join(home, ".codex")] },
     { agent: "claude", scope: "project", displayName: "claude (project)", dir: join(cwd, ".claude", "skills") },
     { agent: "codex", scope: "project", displayName: "codex (project)", dir: join(cwd, ".codex", "skills") },
-    // pi follows the original four targets so their positions in `installs[]` stay stable.
-    { agent: "pi", scope: "user", displayName: "pi (user)", dir: join(piDir, "skills"), detectDir: piDir },
-    { agent: "pi", scope: "project", displayName: "pi (project)", dir: join(cwd, ".pi", "skills") }
+    // Additional tools follow the original four targets so their positions in `installs[]` stay stable.
+    { agent: "pi", scope: "user", displayName: "pi (user)", dir: join(piDir, "skills"), detectDirs: [piDir] },
+    { agent: "pi", scope: "project", displayName: "pi (project)", dir: join(cwd, ".pi", "skills") },
+    { agent: "antigravity", scope: "user", displayName: "antigravity (user)", dir: join(home, ".gemini", "config", "skills"), detectDirs: antigravityDetectDirs(home) },
+    { agent: "antigravity", scope: "project", displayName: "antigravity (project)", dir: join(cwd, ".agents", "skills") }
   ];
 }
 
@@ -145,8 +157,8 @@ async function promptScope(stdinStream?: NodeJS.ReadableStream, options: Command
 
   return new Promise((resolve) => {
     stderr.write("\nWhere should skills be installed?\n");
-    stderr.write("  1. Project level (.claude/skills/, .codex/skills/ and .pi/skills/ in current directory)\n");
-    stderr.write("  2. User level (~/.claude/skills/, ~/.codex/skills/ and ~/.pi/agent/skills/ for detected agents)\n");
+    stderr.write("  1. Project level (.claude/skills/, .codex/skills/, .pi/skills/, and .agents/skills/ in current directory)\n");
+    stderr.write("  2. User level (~/.claude/skills/, ~/.codex/skills/, ~/.pi/agent/skills/, and ~/.gemini/config/skills/ for detected agents)\n");
     stderr.write("\n");
 
     const ask = () => {

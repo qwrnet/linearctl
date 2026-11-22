@@ -102,21 +102,21 @@ Each curated metadata entry includes a registry-derived `usage` string, so agent
 
 ## Agent skills
 
-linearctl ships two skills (`linearctl` and `linearctl-raw-gql`) that teach an agent the routing and output rules above. Install them for Claude Code, Codex, and pi:
+linearctl ships two skills (`linearctl` and `linearctl-raw-gql`) that teach an agent the routing and output rules above. Install them for Claude Code, Codex, pi, and Google Antigravity:
 
 ```bash
-# Project scope (default): .claude/skills/, .codex/skills/, .pi/skills/
+# Project scope (default): .claude/skills/, .codex/skills/, .pi/skills/, .agents/skills/
 linearctl skills install --scope project --json
 
 # User scope, for each agent whose config directory exists:
-# ~/.claude/skills/, ~/.codex/skills/, ~/.pi/agent/skills/ (or $PI_CODING_AGENT_DIR/skills/)
+# ~/.claude/skills/, ~/.codex/skills/, ~/.pi/agent/skills/ (or $PI_CODING_AGENT_DIR/skills/), ~/.gemini/config/skills/
 linearctl skills install --scope user --json
 
 # Check where they are installed and whether they match this linearctl version
 linearctl skills list --json
 ```
 
-`skills list --json` returns one entry per skill with `installs[]` records (`tool` is `claude`, `codex`, or `pi`; plus `scope`, `path`, `installed`, `upToDate`). Run `skills install` again after updating linearctl when any record shows `upToDate: false`. pi loads project skills only from projects you trust, and a running pi session picks up new skills after `/reload`.
+`skills list --json` returns one entry per skill with `installs[]` records (`tool` is `claude`, `codex`, `pi`, or `antigravity`; plus `scope`, `path`, `installed`, `upToDate`). Run `skills install` again after updating linearctl when any record shows `upToDate: false`. pi loads project skills only from projects you trust, and a running pi session picks up new skills after `/reload`. Antigravity loads skills on the next turn (run `/skills reload` in the Antigravity CLI to refresh its `/skills` list).
 
 ## Anti-patterns
 

@@ -39,13 +39,13 @@ The binary is self-contained. End users do not need Bun installed.
 
 ## Install agent skills
 
-If you're using an LLM agent (Claude Code, Codex, pi, etc.), install the bundled skills so the agent knows how to use the CLI:
+If you're using an LLM agent (Claude Code, Codex, pi, Google Antigravity, etc.), install the bundled skills so the agent knows how to use the CLI:
 
 ```bash
 linearctl skills install
 ```
 
-This auto-detects which agents you have installed (Claude Code, Codex, pi) and writes the skills to the right directories. It installs at project scope by default (`.claude/skills/`, `.codex/skills/`, and `.pi/skills/` in the current directory); pass `--scope user` to install for detected agents in your home directory.
+This auto-detects which agents you have installed (Claude Code, Codex, pi, Google Antigravity) and writes the skills to the right directories. It installs at project scope by default (`.claude/skills/`, `.codex/skills/`, `.pi/skills/`, and `.agents/skills/` in the current directory); pass `--scope user` to install for detected agents in your home directory.
 
 ## Authenticate
 

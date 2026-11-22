@@ -116,7 +116,7 @@ describe("handleSkillsCommand", () => {
 
         const parsed = JSON.parse(chunks.join(""));
         const linearctl = parsed.find((entry: { name: string }) => entry.name === "linearctl");
-        expect(linearctl.installs).toHaveLength(6);
+        expect(linearctl.installs).toHaveLength(8);
         expect(linearctl.installs).toContainEqual({
           tool: "claude",
           scope: "user",
@@ -154,9 +154,24 @@ describe("handleSkillsCommand", () => {
           installed: false,
           upToDate: false
         });
-        // The original records keep their positions; pi records are appended.
+        expect(linearctl.installs).toContainEqual({
+          tool: "antigravity",
+          scope: "user",
+          path: join(tempHome, ".gemini", "config", "skills", "linearctl", "SKILL.md"),
+          installed: false,
+          upToDate: false
+        });
+        expect(linearctl.installs).toContainEqual({
+          tool: "antigravity",
+          scope: "project",
+          path: join(process.cwd(), ".agents", "skills", "linearctl", "SKILL.md"),
+          installed: false,
+          upToDate: false
+        });
+        // The original records keep their positions; pi and antigravity records are appended.
         expect(linearctl.installs.map((install: { tool: string; scope: string }) => `${install.tool}:${install.scope}`)).toEqual([
-          "claude:user", "codex:user", "claude:project", "codex:project", "pi:user", "pi:project"
+          "claude:user", "codex:user", "claude:project", "codex:project",
+          "pi:user", "pi:project", "antigravity:user", "antigravity:project"
         ]);
         for (const install of linearctl.installs) {
           expect(Object.keys(install).sort()).toEqual(
@@ -196,9 +211,9 @@ describe("handleSkillsCommand", () => {
         expect(code).toBe(0);
 
         const parsed = JSON.parse(chunks.join(""));
-        // Project installs to .claude, .codex and .pi
-        expect(parsed.targets).toHaveLength(3);
-        expect(parsed.installed).toHaveLength(skillCount * 3);
+        // Project installs to .claude, .codex, .pi, and .agents
+        expect(parsed.targets).toHaveLength(4);
+        expect(parsed.installed).toHaveLength(skillCount * 4);
 
         // Verify directory structure: <name>/SKILL.md
         for (const entry of parsed.installed) {
@@ -207,12 +222,16 @@ describe("handleSkillsCommand", () => {
           expect(content).toBe(EMBEDDED_SKILLS[entry.name]!.content);
         }
 
-        // Verify both agent dirs were created
+        // Verify all agent dirs were created
         expect(existsSync(join(tempDir, ".claude", "skills"))).toBe(true);
         expect(existsSync(join(tempDir, ".codex", "skills"))).toBe(true);
         expect(existsSync(join(tempDir, ".pi", "skills", "linearctl", "SKILL.md"))).toBe(true);
+        expect(existsSync(join(tempDir, ".agents", "skills", "linearctl", "SKILL.md"))).toBe(true);
         expect(parsed.installed).toContainEqual(expect.objectContaining({
           agent: "pi", scope: "project", displayName: "pi (project)"
+        }));
+        expect(parsed.installed).toContainEqual(expect.objectContaining({
+          agent: "antigravity", scope: "project", displayName: "antigravity (project)"
         }));
       } finally {
         stdoutSpy.mockRestore();
@@ -233,10 +252,11 @@ describe("handleSkillsCommand", () => {
         expect(code).toBe(0);
 
         const parsed = JSON.parse(chunks.join(""));
-        // User level installs to .claude, .codex and pi when none is detected
-        expect(parsed.targets).toHaveLength(3);
-        expect(parsed.installed).toHaveLength(skillCount * 3);
+        // User level installs to .claude, .codex, pi, and antigravity when none is detected
+        expect(parsed.targets).toHaveLength(4);
+        expect(parsed.installed).toHaveLength(skillCount * 4);
         expect(parsed.targets).toContain(join(tempDir, ".pi", "agent", "skills"));
+        expect(parsed.targets).toContain(join(tempDir, ".gemini", "config", "skills"));
 
         for (const entry of parsed.installed) {
           expect(entry.path).toContain(tempDir);
@@ -332,6 +352,85 @@ describe("handleSkillsCommand", () => {
       });
     });
 
+    it.each([
+      [".gemini", "config"],
+      [".gemini", "antigravity"],
+      [".gemini", "antigravity-cli"],
+      [".gemini", "antigravity-ide"]
+    ])("user level installs to antigravity when ~/%s/%s exists", async (...parts) => {
+      const tempDir = await mkdtemp(join(tmpdir(), "linearctl-skills-antigravity-"));
+      await mkdir(join(tempDir, ...parts), { recursive: true });
+      const originalHome = process.env.HOME;
+      process.env.HOME = tempDir;
+
+      const install = captureStdout();
+      try {
+        const code = await handleSkillsCommand(["install"], baseOptions({ scope: "user" }));
+        expect(code).toBe(0);
+      } finally {
+        install.spy.mockRestore();
+      }
+
+      const expectedSkillsDir = join(tempDir, ".gemini", "config", "skills");
+      try {
+        const parsed = JSON.parse(install.chunks.join(""));
+        expect(parsed.targets).toEqual([expectedSkillsDir]);
+        for (const name of Object.keys(EMBEDDED_SKILLS)) {
+          const path = join(expectedSkillsDir, name, "SKILL.md");
+          expect(await readFile(path, "utf8")).toBe(EMBEDDED_SKILLS[name]!.content);
+          expect(parsed.installed).toContainEqual({
+            name,
+            filename: "SKILL.md",
+            path,
+            agent: "antigravity",
+            scope: "user",
+            displayName: "antigravity (user)"
+          });
+        }
+
+        const list = captureStdout();
+        try {
+          expect(await handleSkillsCommand(["list"], baseOptions())).toBe(0);
+        } finally {
+          list.spy.mockRestore();
+        }
+        const linearctl = JSON.parse(list.chunks.join("")).find((entry: { name: string }) => entry.name === "linearctl");
+        expect(linearctl.installs).toContainEqual({
+          tool: "antigravity",
+          scope: "user",
+          path: join(expectedSkillsDir, "linearctl", "SKILL.md"),
+          installed: true,
+          upToDate: true
+        });
+      } finally {
+        if (originalHome === undefined) delete process.env.HOME;
+        else process.env.HOME = originalHome;
+      }
+    });
+
+    it("user level ignores bare ~/.gemini without antigravity directories", async () => {
+      const tempDir = await mkdtemp(join(tmpdir(), "linearctl-skills-bare-gemini-"));
+      await mkdir(join(tempDir, ".claude"), { recursive: true });
+      await mkdir(join(tempDir, ".gemini"), { recursive: true });
+      const originalHome = process.env.HOME;
+      process.env.HOME = tempDir;
+
+      const { chunks, spy: stdoutSpy } = captureStdout();
+
+      try {
+        const code = await handleSkillsCommand(["install"], baseOptions({ scope: "user" }));
+        expect(code).toBe(0);
+
+        const parsed = JSON.parse(chunks.join(""));
+        expect(parsed.targets).toEqual([join(tempDir, ".claude", "skills")]);
+        expect(existsSync(join(tempDir, ".gemini", "config", "skills"))).toBe(false);
+      } finally {
+        stdoutSpy.mockRestore();
+        if (originalHome === undefined) delete process.env.HOME;
+        else process.env.HOME = originalHome;
+      }
+    });
+
     it("json mode defaults to project scope without prompting", async () => {
       const tempDir = await mkdtemp(join(tmpdir(), "linearctl-skills-json-"));
       const originalCwd = process.cwd();
@@ -353,7 +452,7 @@ describe("handleSkillsCommand", () => {
     });
   });
 
-  it("embeds SKILL.md frontmatter that pi's Agent Skills loader accepts", () => {
+  it("embeds SKILL.md frontmatter that pi and Google Antigravity's Agent Skills loaders accept", () => {
     for (const [dirName, skill] of Object.entries(EMBEDDED_SKILLS)) {
       const match = /^---\n([\s\S]*?)\n---\n/.exec(skill.content);
       expect(match, `${dirName} has no frontmatter block`).not.toBeNull();

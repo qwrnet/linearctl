@@ -122,8 +122,8 @@ Raw GraphQL should not be used merely because it is possible. It is the fallback
 - `linearctl state delete <id|name> [--team <id>] --json`
 
 ### Skills
-- `linearctl skills install [--json]` — auto-detect agents and install skill files
-- `linearctl skills list --json` — list embedded skills plus install status, paths, and `upToDate` state for Claude Code and Codex at user and project scope; uninspectable targets report a per-target `error` without hiding other results
+- `linearctl skills install [--scope project|user] [--json]` — auto-detect agents and install skill files for Claude Code, Codex, pi, and Google Antigravity
+- `linearctl skills list --json` — list embedded skills plus install status, paths, and `upToDate` state for Claude Code, Codex, pi, and Google Antigravity at user and project scope; uninspectable targets report a per-target `error` without hiding other results
 
 ### Updates
 - `linearctl update check --json` — compare the installed version with the latest GitHub release without changing anything; returns `currentVersion`, `latestVersion`, `updateAvailable`, `installMethod` and `recommendation`. Exit 1 with `latestVersion: null` means GitHub couldn't be reached.

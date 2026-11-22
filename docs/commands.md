@@ -345,17 +345,17 @@ See [schema-and-generated.md](schema-and-generated.md) for details.
 ## Skills
 
 ```bash
-# Install agent skills (project: .claude/skills/, .codex/skills/, .pi/skills/;
-# user: ~/.claude/skills/, ~/.codex/skills/, ~/.pi/agent/skills/)
+# Install agent skills (project: .claude/skills/, .codex/skills/, .pi/skills/, .agents/skills/;
+# user: ~/.claude/skills/, ~/.codex/skills/, ~/.pi/agent/skills/, ~/.gemini/config/skills/)
 linearctl skills install [--scope project|user] [--json]
 
 # List embedded skills and inspect install status, paths, and freshness
 linearctl skills list [--json]
 ```
 
-Installation auto-discovers Claude Code, Codex, and pi targets. Project scope (the default) writes to every tool's project directory. User scope writes only for the tools whose config directory exists (`~/.claude`, `~/.codex`, pi's agent directory), or to all three when none is found. pi's user directory follows `PI_CODING_AGENT_DIR` when it is set (default `~/.pi/agent`), as pi does. pi asks for project trust before it loads skills from `.pi/skills/`; run `/reload` in an open pi session to pick up new skills.
+Installation auto-discovers Claude Code, Codex, pi, and Google Antigravity targets. Project scope (the default) writes to every tool's project directory. User scope writes only for the tools whose config directory exists (`~/.claude`, `~/.codex`, pi's agent directory, or `~/.gemini/config`, `~/.gemini/antigravity`, `~/.gemini/antigravity-cli`, `~/.gemini/antigravity-ide` for Antigravity, installing to `~/.gemini/config/skills/` shared across Antigravity App, CLI, and IDE), or to all four when none is found. pi's user directory follows `PI_CODING_AGENT_DIR` when it is set (default `~/.pi/agent`), as pi does. pi asks for project trust before it loads skills from `.pi/skills/`; run `/reload` in an open pi session to pick up new skills. Antigravity reloads skills on the next turn (or via `/skills reload` in the Antigravity CLI).
 
-Listing always checks all three tools at user and project scope; JSON entries include `installs[]` records with `tool` (`claude`, `codex`, or `pi`), `scope`, `path`, `installed`, and `upToDate`, plus a per-target `error` when a path cannot be inspected.
+Listing always checks all four tools at user and project scope; JSON entries include `installs[]` records with `tool` (`claude`, `codex`, `pi`, or `antigravity`), `scope`, `path`, `installed`, and `upToDate`, plus a per-target `error` when a path cannot be inspected.
 
 ## Update
 

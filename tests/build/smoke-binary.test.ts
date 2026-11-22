@@ -28,7 +28,7 @@ function fixture(mode: "valid" | "version" | "content" | "extra" | "missing" | "
     else if (args[0] === "--version") console.log("linearctl " + (mode === "version" ? "0.0.0" : "1.2.3"));
     else {
       if (args.join(" ") !== "skills install --scope project --json") process.exit(2);
-      for (const agent of [".claude", ".codex", ".pi"]) {
+      for (const agent of [".claude", ".codex", ".pi", ".agents"]) {
         mkdirSync(join(agent, "skills"), { recursive: true });
         if (mode !== "missing") {
           mkdirSync(join(agent, "skills", "example"));
