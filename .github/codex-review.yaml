@@ -2,7 +2,6 @@ enabled: true
 block_on: [P0, P1]
 min_confidence: 4
 owner_only: warn
-effort: medium
 jev: true
 instructions: |
   This repository builds linearctl, an agent-first CLI for the Linear API, and its bundled agent
