@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-22
+
 ### Added
 
 - `linearctl skills install` and `linearctl skills list` support Google Antigravity. Project scope writes `.agents/skills/`; user scope writes `~/.gemini/config/skills/` (shared across Antigravity App, CLI, and IDE) when any Antigravity config directory (`~/.gemini/config`, `~/.gemini/antigravity`, `~/.gemini/antigravity-cli`, or `~/.gemini/antigravity-ide`) exists. `skills list --json` appends `installs[]` records with `tool: "antigravity"` for both scopes; existing records are unchanged.
